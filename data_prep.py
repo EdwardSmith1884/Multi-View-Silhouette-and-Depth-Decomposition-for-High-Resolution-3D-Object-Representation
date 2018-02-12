@@ -23,8 +23,8 @@ from subprocess import call
 # this is the dataset for object translation, it will download the object files, convert then into numpy matricies, and overlay them onto pictures from the sun dataset 
 
 parser = argparse.ArgumentParser(description='Dataset prep for image to 3D object super resolution')
-parser.add_argument('-o','--objects', default=['plane'], help='List of object classes to be used downloaded and converted.', nargs='+' )
-parser.add_argument('-no','--num_objects', default=100, help='number of objects to be converted', type = int)
+parser.add_argument('-o','--objects', default=['chair'], help='List of object classes to be used downloaded and converted.', nargs='+' )
+parser.add_argument('-no','--num_objects', default=10000, help='number of objects to be converted', type = int)
 parser.add_argument('-ni','--num_images', default=10, help='number of images to be created for each object', type = int)
 parser.add_argument('-l','--low', default=32, help='Low resolution value', type = int)
 parser.add_argument('-hi','--high', default=256, help='high resolution value', type = int)

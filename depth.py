@@ -9,18 +9,19 @@ from utils import *
 from models import *
 from sklearn.metrics import mean_squared_error as mse
 import argparse
+from PIL import Image
 
 parser = argparse.ArgumentParser(description='Depth mep predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='plane', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/plane/train', help ='The location for the training voxel data.' )
-parser.add_argument('-v','--valid', default='data/voxels/plane/valid', help ='The location for the validation voxel data.' )
+parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
+parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
-parser.add_argument('-b','--batchsize', default=4, help ='The batch size.', type=int)
+parser.add_argument('-b','--batchsize', default=16, help ='The batch size.', type=int)
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
 parser.add_argument('-high', default= 256, help='The size of the high dimension objects.', type= int)
 parser.add_argument('-low', default= 32, help='The size of the low dimension object.', type= int)
 parser.add_argument('-l', '--load', default= False, help='Indicates if a previously loaded model should be loaded.', action = 'store_true')
-parser.add_argument('-le', '--load_epoch', default= '', help='The epoch to number to be loaded from.', type=str)
+parser.add_argument('-le', '--load_epoch', default= 'best', help='The epoch to number to be loaded from, if you just want the best, leave as default.', type=str)
 args = parser.parse_args()
 
 checkpoint_dir = "checkpoint/" + args.name +'/'
@@ -71,7 +72,7 @@ sess.run(tf.global_variables_initializer())
 
 ####### load checkpoints and files ###############
 if args.load: 
-	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = args.name)
+	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (args.name + '_depth'))
 recon_loss, exact_valid_loss, valid_loss = [],[],[]
 files = grab_files(args.data)
 valid = grab_files(args.valid)[:valid_length*batchsize]
@@ -79,7 +80,13 @@ valid, _  = make_batch(valid, high, low, valid = True)
 
 
 ######### training ##############3
-start = 0 if not args.load else int(args.load_epoch)
+if args.load: 
+	try: 
+		start = int(args.load_epoch) + 1 
+	except: 
+		start = 0 
+else: 
+	start = 0 
 min_recon = 100000. 
 
 for epoch in xrange(start, args.epochs):
@@ -91,7 +98,7 @@ for epoch in xrange(start, args.epochs):
 			feed_dict={images_high :batch['high'],  images_low: batch['low'], low_up: batch['low_up'],  side : batch['side']})    
 		if epoch > 0:  
 			recon_loss.append(L2_loss)
-		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, MSE: %.4f, Loss: %.4f, VALID: %.4f" % 
+		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, MSE:%.4f, Loss: %.4f, VALID: %.4f" % 
 			(epoch, args.epochs, idx, len(files)//batchsize, time.time() - start_time, L2_loss, batch_loss, min_recon))        
 		sys.stdout.flush()
 
@@ -109,21 +116,13 @@ for epoch in xrange(start, args.epochs):
 		v_loss += temp_loss/float(valid_length)
 		reconstruction = np.concatenate((reconstruction, temp_recon.reshape((-1,high,high))), axis =0)
 
-	ground_truth = np.array((valid['high'])).reshape((3*batchsize,high,high))	
-	reconstruction = np.round_(reconstruction*distance).reshape((3*batchsize,high,high)) # round as in real voxel case 
-	valid_low_up = np.array((valid['low_up'])).reshape((3*batchsize,high,high))
-	for i in xrange(len(valid)):
-		example = np.array(reconstruction[i])
-		on = np.where(example>0) 		# where change occurs
-		example[on]  = valid_low_up[i][on] + example[on] # add to upsampled low resolution odm
-		
-		off = np.where(example > high - 1 )  # set values which predict to high to be unoccupited -> 0        
-		example[off] = 0. 
-		off = np.where(ground_truth[i]  == 0) # set all values to which should be unoccupied to 0, as this will be convered by the occupany prediction 
-		example[off] = 0.
-		reconstruction[i] = example
+	reconstruction = recover_depths(reconstruction, valid['low_up'], high, distance ) # reconver the full depth map
 
-		
+	# set all values to which should be unoccupied to 0, as this will be convered by the occupany prediction 
+	ground_truth = np.array((valid['high'])).reshape((3*batchsize,high,high))	
+	off = np.where(ground_truth == 0) 
+	reconstruction[off] = 0.
+
 
 	mean_squared_error = np.mean(np.square(reconstruction - ground_truth))
 	exact_valid_loss.append(mean_squared_error)
@@ -133,7 +132,7 @@ for epoch in xrange(start, args.epochs):
 	test_valid = min_recon
 	min_recon = min(mean_squared_error, min_recon)
 	if test_valid != min_recon: 
-		save_networks(checkpoint_dir, sess, net, name = args.name, epoch = str(epoch))
+		save_networks(checkpoint_dir, sess, net,name = (args.name + '_depth'), epoch = str(epoch))
 
 	####### save graphs #####
 	render_graphs(save_dir, epoch, recon_loss, valid_loss, exact_valid_loss,)

@@ -11,15 +11,15 @@ from sklearn.metrics import mean_squared_error as mse
 import argparse
 
 parser = argparse.ArgumentParser(description='Occupancy map predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='plane', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/plane/train', help ='The location for the training voxel data.' )
-parser.add_argument('-v','--valid', default='data/voxels/plane/valid', help ='The location for the validation voxel data.' )
+parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
+parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
-parser.add_argument('-b','--batchsize', default=4, help ='The batch size.', type=int)
+parser.add_argument('-b','--batchsize', default=16, help ='The batch size.', type=int)
 parser.add_argument('-high', default= 256, help='The size of the high dimension objects.', type= int)
 parser.add_argument('-low', default= 32, help='The size of the low dimension object.', type= int)
 parser.add_argument('-l', '--load', default= False, help='Indicates if a previously loaded model should be loaded.', action = 'store_true')
-parser.add_argument('-le', '--load_epoch', default= '', help='The epoch to number to be loaded from.', type=str)
+parser.add_argument('-le', '--load_epoch', default= 'best', help='The epoch to number to be loaded from, if you just want the best, leave as default.', type=str)
 args = parser.parse_args()
 
 checkpoint_dir = "checkpoint/" + args.name +'/'
@@ -63,15 +63,21 @@ sess.run(tf.global_variables_initializer())
 
 ####### load checkpoints and files ###############
 if args.load: 
-	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = args.name)
+	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (args.name+'_occ'))
 recon_loss, exact_valid_loss, valid_loss = [],[],[]
 files = grab_files(args.data)
 valid = grab_files(args.valid)[:valid_length*batchsize]
 valid, _  = make_batch(valid, high, low, occupancy = True, valid = True)
 
 
-######### training ##############3
-start = 0 if not args.load else int(args.load_epoch)
+######### training ##############
+if args.load: 
+	try: 
+		start = int(args.load_epoch) + 1 
+	except: 
+		start = 0 
+else: 
+	start = 0 
 min_recon = 100000. 
 for epoch in range(start, args.epochs):
 	for idx in xrange(len(files)/ batchsize):
@@ -88,7 +94,7 @@ for epoch in range(start, args.epochs):
 
   
 	
-   
+   	######### check validation ##########
 	reconstruction = np.zeros((0,high,high))
 	v_loss = 0. 
 	for i in range(valid_length): 
@@ -101,8 +107,7 @@ for epoch in range(start, args.epochs):
 	
 	
 	ground_truth = np.array((valid['high']) *1.).reshape((-1, high, high))
-	reconstruction[np.where( reconstruction > .5 )] = 1.
-	reconstruction[np.where( reconstruction <= .5 )] = 0.
+	reconstruction = recover_occupancy(reconstruction)
 	mean_squared_error = np.mean(np.square(reconstruction - ground_truth))
 
 	exact_valid_loss.append(mean_squared_error)
@@ -112,7 +117,7 @@ for epoch in range(start, args.epochs):
 	test_valid = min_recon
 	min_recon = min(mean_squared_error, min_recon)
 	if test_valid != min_recon: 
-		save_networks(checkpoint_dir, sess, net, name = args.name, epoch =str(epoch))
+		save_networks(checkpoint_dir, sess, net, name = (args.name + '_occ'), epoch =str(epoch))
 
 	####### save graphs #####
 	render_graphs(save_dir, epoch, recon_loss, valid_loss, exact_valid_loss, name = 'occ' ) 
