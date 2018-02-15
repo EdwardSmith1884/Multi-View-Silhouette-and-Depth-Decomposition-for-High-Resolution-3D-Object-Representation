@@ -81,11 +81,11 @@ def auto_encoder(inputs, scope = 'reconstruction', is_train=True, reuse=False):
 			decode.outputs = tf.nn.relu(decode.outputs, name='decode/relu/%s' % i)
 
 			#convlayer
-			decode =  tl.layers.Conv3dLayer(decode,
-				shape=[3, 3, 3, kernal_depth[i+1], kernal_depth[i+1]],
-				W_init = init, strides=[1, 1, 1, 1, 1], name= 'decode/conv/%s' % i)
-			decode = tl.layers.BatchNormLayer(decode, is_train=is_train, name='encoder/batch_norm/%s' % i)
-			decode.outputs = tf.nn.relu(decode.outputs, name='decode/relu/%s' %i)
+			# decode =  tl.layers.Conv3dLayer(decode,
+			# 	shape=[3, 3, 3, kernal_depth[i+1], kernal_depth[i+1]],
+			# 	W_init = init, strides=[1, 1, 1, 1, 1], name= 'decode/conv/%s' % i)
+			# decode = tl.layers.BatchNormLayer(decode, is_train=is_train, name='encoder/batch_norm/%s' % i)
+			# decode.outputs = tf.nn.relu(decode.outputs, name='decode/relu/%s' %i)
 
 		# conv layer to set kenel depth to 1 
 		decode =  tl.layers.Conv3dLayer(decode,
