@@ -146,15 +146,6 @@ def process_mtl():
 
 
 
-
-
-
-
-
-
-
-
-
 # these are two simple fucntions for parallel processing, down() downloads , and call() calls functions 
 def down(url):
 	urllib.urlretrieve(url[0], url[1])
@@ -300,9 +291,6 @@ def convert_bin():
 					# obtain odms 
 					faces = odm(model)
 					low_faces = odm(low_model)
-					
-
-
 					
 					if e < 2: 
 						if e == 0: 

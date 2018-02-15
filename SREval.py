@@ -83,10 +83,8 @@ for idx in xrange(0, len(files)/args.batchsize):
 		small_obj = upsample(small_obj, high, low)
 		prediction = apply_occupancy(np.array(small_obj), odm)
 		prediction = apply_depth(np.array(prediction),high, prediction)
-		produce(prediction, obj, small_obj)
-		print 'produced stuff' 
-		exit()
-
+		evaluate_SR(prediction, obj, small_obj)
+		
 		
 
 		

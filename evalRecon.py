@@ -101,16 +101,14 @@ for f in files:
 		pred_odms = []
 		for odm_batch, low_up_batches in zip(odm_batches, low_up_batches):
 			pred_depths, pred_occs = sess.run([depth_pred, occ_pred], feed_dict= {odms: odm_batch}) # predicting depth and occupancy maps 
-			pred_odms += list(recover_odms(pred_depths,pred_occs,low_up_batches, high, low, distance, threshold = (1.5*high//low))) # recover complete odms from depth and occupancy maps 
+			pred_odms += list(recover_odms(pred_depths,pred_occs,low_up_batches, high, low, distance, threshold = (2.5*high//low))) # recover complete odms from depth and occupancy maps 
 		
 		pred_odms = [ pred_odms[i*6:(i+1)*6] for i in range(len(pred_odms)/6)] # combining odms from the same model 
 
 		####### evaluate the models ############	
 		combined_information = zip(pred_models, pred_odms, batch)
 		for instance in tqdm(combined_information):			
-			evaluate(instance) #evaluate each model -> viewing only
-			print 'finished'
+			evaluate_reconstruction(instance, args.data, high, low) #evaluate each model -> viewing only
 			exit()
-
 			
 
