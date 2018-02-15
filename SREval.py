@@ -57,8 +57,8 @@ tl.ops.set_gpu_fraction(sess=sess, gpu_fraction=0.999)
 sess.run(tf.global_variables_initializer())
 
 
-load_networks(checkpoint_dir, sess, net_depth, args.depth, name = (args.name+'_depth'))
-load_networks(checkpoint_dir, sess, net_occ, args.occ, name = (args.name+'_occ'))
+load_networks(checkpoint_dir, sess, net_depth, args.depth, name ='depth')
+load_networks(checkpoint_dir, sess, net_occ, args.occ, name = 'occ')
 files = grab_files(args.data)
 
 
