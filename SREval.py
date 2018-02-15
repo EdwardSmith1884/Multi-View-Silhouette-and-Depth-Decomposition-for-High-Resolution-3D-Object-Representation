@@ -44,8 +44,8 @@ side        = tf.placeholder(tf.float32, [batchsize, low, low, 1], name='side') 
 combined    = tf.concat((images_low, side), axis = 3)
 
 ########## network computations #######################
-net_depth, depth_pred      = upscale(combined, scope_name = scope_depth, is_train=False, reuse = False)
-net_occ, occ_pred 		   = upscale(combined, scope_name = scope_occ, is_train=False, reuse = False)
+net_depth, depth_pred      = upscale(combined, ratio, scope = scope_depth, is_train=False, reuse = False)
+net_occ, occ_pred 		   = upscale(combined, ratio, scope = scope_occ, is_train=False, reuse = False)
 net_depth.print_params(False)
 net_occ.print_params(False)
 
@@ -81,8 +81,8 @@ for idx in xrange(0, len(files)/args.batchsize):
 
 
 		small_obj = upsample(small_obj, high, low)
-		prediction = apply_occupancy(np.array(small_obj), odm)
-		prediction = apply_depth(np.array(prediction),high, prediction)
+		prediction = apply_occupancy(np.array(small_obj), np.array(odm))
+		prediction = apply_depth(np.array(prediction),np.array(odm),high,)
 		evaluate_SR(prediction, obj, small_obj)
 		
 		
