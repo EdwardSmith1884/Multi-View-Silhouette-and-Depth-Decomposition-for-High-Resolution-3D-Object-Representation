@@ -69,7 +69,7 @@ for idx in xrange(0, len(files)/args.batchsize):
 	for k in range(6): 
 		batch, _    = make_batch(cur_files, high, low, side = k)
 		depths, occs = sess.run([depth_pred,occ_pred], feed_dict={images_low:batch['low'], side: batch['side']})     
-		odms.append(recover_odm(depths, occs, batch['low_up'], high, low, distance, side, threshold = 1.5*high//low)) # combining depths and occupancy maps to recover full odms 
+		odms.append(recover_odms(depths, occs, batch['low_up'], high, low, distance, threshold = 1.5*high//low)) # combining depths and occupancy maps to recover full odms 
 	
 	# combining information 
 	odms =  zip(odms[0], odms[1], odms[2], odms[3], odms[4], odms[5])

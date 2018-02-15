@@ -12,9 +12,9 @@ import argparse
 from PIL import Image
 
 parser = argparse.ArgumentParser(description='Depth mep predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
-parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
+parser.add_argument('-n','--name', default='plane', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-d','--data', default='data/voxels/plane/train', help ='The location for the training voxel data.' )
+parser.add_argument('-v','--valid', default='data/voxels/plane/valid', help ='The location for the validation voxel data.' )
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
 parser.add_argument('-b','--batchsize', default=16, help ='The batch size.', type=int)
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
@@ -47,8 +47,8 @@ side        = tf.placeholder(tf.float32, [batchsize, low, low, 1], name='side') 
 combined    = tf.concat((images_low, side), axis = 3)
 ########## network computations #######################
 
-net, pred      = upscale(combined, scope_name = scope, is_train=True, reuse = False)
-_, pred_valid  = upscale(combined, scope_name = scope, is_train=False, reuse = True)
+net, pred      = upscale(combined, ratio,  scope = scope, is_train=True, reuse = False)
+_, pred_valid  = upscale(combined, ratio, scope = scope, is_train=False, reuse = True)
 final          = low_up + pred*distance    # add ranged prediction to upsampled low res ODM for final prediction 
 final_valid     = low_up + pred_valid*distance
 MSE_loss       = tf.reduce_mean(tl.cost.mean_squared_error(images_high, final, is_mean=True))
@@ -72,7 +72,7 @@ sess.run(tf.global_variables_initializer())
 
 ####### load checkpoints and files ###############
 if args.load: 
-	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (args.name + '_depth'))
+	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (scope))
 recon_loss, exact_valid_loss, valid_loss = [],[],[]
 files = grab_files(args.data)
 valid = grab_files(args.valid)[:valid_length*batchsize]
@@ -132,7 +132,7 @@ for epoch in xrange(start, args.epochs):
 	test_valid = min_recon
 	min_recon = min(mean_squared_error, min_recon)
 	if test_valid != min_recon: 
-		save_networks(checkpoint_dir, sess, net,name = (args.name + '_depth'), epoch = str(epoch))
+		save_networks(checkpoint_dir, sess, net,name = (scope), epoch = str(epoch))
 
 	####### save graphs #####
 	render_graphs(save_dir, epoch, recon_loss, valid_loss, exact_valid_loss,)
