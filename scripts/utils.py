@@ -7,6 +7,7 @@ import scipy.io as sio
 import random
 import tensorlayer as tl
 from PIL import Image
+from voxel import *
 
 # making some subdirectories, checkpoint stores the models,
 # savepoint saves some created objects at each epoch
@@ -56,7 +57,7 @@ def make_batch(files, h, l, valid = False, side = -1, occupancy = False):
 	return gen, start_time
    
 
-
+# loads voxel objects from file names 
 def make_objs(files): 
 	high_objs, low_objs = [], []
 	for f in files: 
@@ -71,7 +72,7 @@ def grab_files(data_dir):
 	data_dir+='/'
 	files = [f for f in glob(data_dir + '*.mat') if 'face_' in f]
 	return files
-
+# gets the list of images from a directroy 
 def grab_images(image_dir, voxel_dir): 
 	files = []
 	pattern  = "*.png"
@@ -82,11 +83,12 @@ def grab_images(image_dir, voxel_dir):
 	voxels = [ v.split('/')[-1].split('.')[0].split('_')[-1] for v in glob(voxel_dir + 'full_object*')]
 	temp = []
 	for f in files: 
-		if f.split('/')[-2] not in voxels: continue
+		if f.split('/')[-2] not in voxels: continue # checks the voxel files also exits 
 		temp.append(f)
 
 	return temp
 
+# loads images and voxels from batch 
 def make_batch_images(file_batch, voxel_dir):
 	start_time = time.time()
 	voxel_dir+='/'
@@ -188,14 +190,14 @@ def recover_depths(preds, ups, high, dis):
 		pred[off] = 0. 
 		preds[i] = pred
 	return preds
-
+# compute complete occupancy map, basically thresholds the probability outputs  
 def recover_occupancy(preds, high, threshold = .5): 
 	preds[np.where( preds >  threshold)] = 1.
 	preds[np.where( preds <= threshold)] = 0.
 	return preds.reshape((-1,high,high))
 
 
-
+# smooths over odm images
 def smoothing(odms, high, threshold): 
 	return odms 
 	for i,odm in enumerate(odms):
@@ -208,7 +210,7 @@ def smoothing(odms, high, threshold):
 			total = 0.
 			count = 0.
 			for a,b in zip(*considered): 
-				if abs(window[a,b] -odm[x,y]) <threshold: 
+				if abs(window[a,b] -odm[x,y]) <threshold: # ignores values to far fom origional value in the window
 					total += window[a,b]
 					count +=1.
 			
@@ -238,24 +240,24 @@ def upsample(obj, high, low):
 				big_obj[i*ratio: (i+1)*ratio, j*ratio:(j+1)*ratio, k*ratio:(k+1)*ratio] = obj[i,j,k]
 	return big_obj
 
-
+# removes voxels from object if the odm preducts the vector is unoccupied 
 def apply_occupancy(obj, odms): 
-	prediction = np.zeros(obj.shape)
 	unoccupied = np.where(odms==0) 
 	for x,y,z in zip(*unoccupied): 
 		if x == 0 or x == 1: 
-			prediction[y,z,:]-=0.25
+			obj[y,z,:]-=0.25
 		elif x == 2 or x == 3: 
-			prediction[y,:,z]-=0.25
+			obj[y,:,z]-=0.25
 		else: 
-			prediction[:,y,z]-=0.25
-	ones = np.where(prediction>.6)
-	zeros = np.where(prediction<.6)
-	prediction[ones] = 1 
-	prediction[zeros] = 0 
-	return prediction 
+			obj[:,y,z]-=0.25
+	ones = np.where(obj>.6)
+	zeros = np.where(obj<.6)
+	obj[ones] = 1 
+	obj[zeros] = 0 
+	return obj 
 
-def apply_depth(obj, high, odms):
+# carves away at object using the odm depth prediction 
+def apply_depth(obj, odms, high):
 	# recovering the origional data collected 
 	off = np.where(odms == 0)
 	for i in range(6): 
@@ -265,26 +267,25 @@ def apply_depth(obj, high, odms):
 			face[on] = 256 - face[on] + 2  # matches how gt obj is created 
 		else:
 			face[on] = face[on]  -1 
-		print odms.shape, face.shape
 		odms[i] = face 
 	odms[off] = high * 2 
 
 	prediction = np.array(obj)
 	depths = np.where(odms<=high)
 	for x,y,z in zip(*depths):
-		pos = odms[x,y,z]
+		pos = int(odms[x,y,z])
 		if x == 0: 
-				data[y,z,pos:high]-=.25
+				prediction[y,z,pos:high]-=.25
 		if x == 1:
-				data[y,z,0:pos]-=.25 
+				prediction[y,z,0:pos]-=.25 
 		if x == 2: 
-				data[y,pos:high,z]-=.25
+				prediction[y,pos:high,z]-=.25
 		elif x == 3: 
-				data[y,0:pos,z]-=.25
+				prediction[y,0:pos,z]-=.25
 		elif x == 4: 
-				data[pos:high,y,z]-=.25
+				prediction[pos:high,y,z]-=.25
 		elif x == 5: 
-				data[0:pos,y, z]-=.25
+				prediction[0:pos,y, z]-=.25
 				5
 	ones = np.where(prediction>=1)
 	zeros = np.where(prediction<1)
@@ -293,7 +294,9 @@ def apply_depth(obj, high, odms):
 	return prediction 
 
 
-def produce( prediction, obj, small_obj):
+def evaluate_SR( prediction, obj, small_obj):
+	all_objs = np.concatenate((small_obj, prediction, obj), axis = 0 )
+	voxel2obj('eval.obj',all_objs, show = True)
 	return
 
 
@@ -359,9 +362,22 @@ def extract_low_up(odm, high, low ):
 		up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1)] = (odm[x,y] -1) *ratio  +1 #  uscale low resolution odm 
 	return up.reshape((256,256))
 		
-def evaluate(instance): 
-	return 
+def evaluate_reconstruction(instance, voxel_dir, high, low): 
+	pred_model, pred_odms, name = instance 
+	upsampled_obj = upsample(pred_model, high, low) # want this to display alongside high res models 
+	pred_model = apply_occupancy(np.array(upsampled_obj), np.array(pred_odms))
+	pred_model = apply_depth(pred_model, np.array(pred_odms), high)
+	pred_obj = mirror(pred_model, high) # want to mirror for symmetry, gives small accuracy boost, more attractive
+	name = name.split('/')[-1].split('_')[0]
+	gt_obj= sio.loadmat(voxel_dir+ '/full_object_' +name +'.mat')['model'] # low high res ground truth 
+	all_objs = np.concatenate((upsampled_obj, pred_obj, gt_obj), axis = 0 )
+	voxel2obj('eval.obj',gt_obj, show = True)
 
+
+
+def plotVoxelVisdom(voxels, visdom, title):
+    v, f = getVFByMarchingCubes(voxels)
+    visdom.mesh(X=v, Y=f, opts=dict(opacity=0.5, title=title))
 
 
 
@@ -401,3 +417,9 @@ def max_connected(models):
 						max_component = component
 		models[i] = max_component
 	return models
+
+def mirror(data, high) : 
+	x,y,z = np.where(data== 1)
+	new_cse = []
+	data[x,y,(high-1)-z] = 1  
+	return data
