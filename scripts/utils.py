@@ -6,6 +6,7 @@ import time
 import scipy.io as sio
 import random
 import tensorlayer as tl
+from PIL import Image
 
 # making some subdirectories, checkpoint stores the models,
 # savepoint saves some created objects at each epoch
@@ -48,15 +49,14 @@ def make_batch(files, h, l, valid = False, side = -1, occupancy = False):
 			change = np.where( high != 0  )
 			high[change] = 1. 
 			highs.append(high)
-
-		# change = np.where(low == 0)
-		# low[change] = l*2 
 		lows.append(low)
 		
 
 	gen = {'high':np.array(highs), 'low': np.array(lows),'low_up':np.array(low_ups), 'side': np.array(sides)}
 	return gen, start_time
    
+
+
 def make_objs(files): 
 	high_objs, low_objs = [], []
 	for f in files: 
@@ -71,6 +71,36 @@ def grab_files(data_dir):
 	data_dir+='/'
 	files = [f for f in glob(data_dir + '*.mat') if 'face_' in f]
 	return files
+
+def grab_images(image_dir, voxel_dir): 
+	files = []
+	pattern  = "*.png"
+	image_dir+='/'
+	voxel_dir+='/'
+	for dir,_,_ in os.walk(image_dir):
+		files.extend(glob(os.path.join(dir,pattern)))
+	voxels = [ v.split('/')[-1].split('.')[0].split('_')[-1] for v in glob(voxel_dir + 'full_object*')]
+	temp = []
+	for f in files: 
+		if f.split('/')[-2] not in voxels: continue
+		temp.append(f)
+
+	return temp
+
+def make_batch_images(file_batch, voxel_dir):
+	start_time = time.time()
+	voxel_dir+='/'
+	models = []
+	images = []
+	for i,fil in enumerate(file_batch):  
+		split = fil.split('/')[-1].split('_')[0]
+		models.append(sio.loadmat(voxel_dir+ 'full_object_' +split +'.mat')['low_model'])
+		img = Image.open(fil)
+		images.append(np.asarray(img,dtype='uint8'))
+	models = np.array(models)
+	images = np.array(images)
+	
+	return models, images, start_time
 
 # saves netowrks during training 
 def save_networks(checkpoint_dir, sess, net, epoch, name = '' ):
@@ -129,7 +159,7 @@ def render_graphs(save_dir,epoch, recon_loss, valid_loss, exact_valid_loss, name
 			valid_list.append((i+1)*len(recon_loss)//(epoch+1) )
 
 		recon_loss = recon_loss[len(recon_loss)//2:]
-		valid_list, valid_loss = valid_list[len(valid_list)//2:],valid_loss[len(valid_loss)//2:]
+		valid_list, valid_loss = valid_list[:len(valid_loss)//2],valid_loss[len(valid_loss)//2:][:len(valid_loss)//2]
 
 		smoothed_recon = savitzky_golay(recon_loss, 101, 3)
 		plt.plot(recon_loss, color='blue') 
@@ -166,19 +196,8 @@ def recover_occupancy(preds, high, threshold = .5):
 
 
 
-
-
-
-# reconvers full odm from occupancy and depth map
-def recover_odm(depths, occs, ups, high, low, dis, side, threshold = 20):
-
-	# recover exact occupancy and depths information and combine to creat the odms
-	odms = recover_depths(depths, ups, high, dis)
-	occs = recover_occupancy(occs, high)
-	off = np.where(occs == 0 )
-	odms[off] = 0
-
-	# smoothing
+def smoothing(odms, high, threshold): 
+	return odms 
 	for i,odm in enumerate(odms):
 		copy = np.array(odm)
 		on = np.where(odm != 0)
@@ -196,8 +215,17 @@ def recover_odm(depths, occs, ups, high, low, dis, side, threshold = 20):
 			if count > odm[x,y]:
 				copy[x,y] = total/count
 		odms[i] = np.round_(copy)
+	return odms
 
 
+# reconvers full odm from occupancy and depth map
+def recover_odms(depths, occs, ups, high, low, dis, threshold = 20):
+	# recover exact occupancy and depths information and combine to creat the odms
+	odms = recover_depths(depths, ups, high, dis)
+	occs = recover_occupancy(occs, high)
+	off = np.where(occs == 0 )
+	odms[off] = 0
+	odms = smoothing(np.array(odms), high, threshold)
 	return odms
 
 # nearest neighbor upsampling of object
@@ -250,7 +278,7 @@ def apply_depth(obj, high, odms):
 		if x == 1:
 				data[y,z,0:pos]-=.25 
 		if x == 2: 
-			 	data[y,pos:high,z]-=.25
+				data[y,pos:high,z]-=.25
 		elif x == 3: 
 				data[y,0:pos,z]-=.25
 		elif x == 4: 
@@ -267,3 +295,109 @@ def apply_depth(obj, high, odms):
 
 def produce( prediction, obj, small_obj):
 	return
+
+
+
+def evaluate_voxel_prediction(prediction,gt):
+	"""  The prediction and gt are 3 dim voxels. Each voxel has values 1 or 0"""
+	intersection = np.sum(np.logical_and(prediction,gt))
+	
+	union = np.sum(np.logical_or(prediction,gt))
+	IoU = float(intersection) / float(union)
+	return IoU
+
+
+# extracts odms from an object 
+def odm(data): 
+	dim = data.shape[0]
+	a,b,c = np.where(data == 1)
+	large = int(dim *1.5)
+	big_list = [[[[-1,large]for j in range(dim)] for i in range(dim)] for k in range(3)]
+	# over the whole object extract for each face the first and last occurance of a voxel at each pixel
+	# we take highest for convinience
+	for i,j,k in zip(a,b,c):
+		big_list[0][i][j][0] = (max(k,big_list[0][i][j][0]))
+		big_list[0][i][j][1] = (min(k,big_list[0][i][j][1]))
+		big_list[1][i][k][0] = (max(j,big_list[1][i][k][0]))
+		big_list[1][i][k][1] = (min(j,big_list[1][i][k][1]))
+		big_list[2][j][k][0] = (max(i,big_list[2][j][k][0]))
+		big_list[2][j][k][1] = (min(i,big_list[2][j][k][1]))
+	faces = np.zeros((6,dim,dim)) # will hold odms 
+	for i in range(dim): 
+		for j in range(dim): 
+			faces[0,i,j] =   1 + dim - big_list[0][i][j][0]        	   if    big_list[0][i][j][0]   > -1 else 0
+			# we subtract from the dimension as we computed the last occurance for half of the faces 
+			# we add 1 as a value of 1 indicates the first voxel is filled, and 0 that no voxle is present along that dimension 
+			faces[1,i,j] =   1 + big_list[0][i][j][1]        		   if    big_list[0][i][j][1]   < large else 0 
+			faces[2,i,j] =   1 + dim - big_list[1][i][j][0]            if    big_list[1][i][j][0]   > -1 else 0
+			faces[3,i,j] =   1 + big_list[1][i][j][1]        		   if    big_list[1][i][j][1]   < large else 0
+			faces[4,i,j] =   1 + dim - big_list[2][i][j][0]            if    big_list[2][i][j][0]   > -1 else 0
+			faces[5,i,j] =   1 + big_list[2][i][j][1]         		   if    big_list[2][i][j][1]   < large else 0
+	return faces
+
+def extract_odms(models, factor, high, low): 
+	low_ups = []
+	views = np.ones((6, low,low, 1))
+	odms = []
+	split = models.shape[0]/factor
+	for i in range(6): 
+		views[i] = i * views[i]
+	for model in models: 
+		model = model.reshape((low, low ,low))
+		faces = odm(model)
+		low_ups += [ extract_low_up(face, high, low) for face in faces]
+		faces = np.concatenate((faces.reshape((6, low , low , 1)), views), axis = 3 ) 
+		odms += list(faces)
+	return np.array([odms[i*split:(i+1)*split] for i in range(factor*6)]), np.array([low_ups[i*split:(i+1)*split] for i in range(factor*6)])
+
+
+def extract_low_up(odm, high, low ): 
+	ratio  = high // low 
+	a,b = np.where(odm > 0) 
+	up = np.zeros((high,high,1))
+	for x,y in zip(a,b): 
+		up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1)] = (odm[x,y] -1) *ratio  +1 #  uscale low resolution odm 
+	return up.reshape((256,256))
+		
+def evaluate(instance): 
+	return 
+
+
+
+
+def voxel_exist(voxels, x,y,z):
+	if x < 0 or y < 0 or z < 0 or x >= voxels.shape[0] or y >= voxels.shape[1] or z >= voxels.shape[2]:
+		return False
+	else :
+		return voxels[x,y,z] > .3 
+
+def max_connected(models):
+	distance = 1
+	for i,voxels in enumerate(models): 
+		max_component = np.zeros(voxels.shape, dtype=bool)
+		voxels = np.copy(voxels)
+		for startx in xrange(voxels.shape[0]):
+			for starty in xrange(voxels.shape[1]):
+				for startz in xrange(voxels.shape[2]):
+					if not voxels[startx,starty,startz]:
+						continue
+					# start a new component
+					component = np.zeros(voxels.shape, dtype=bool)
+					stack = [[startx,starty,startz]]
+					component[startx,starty,startz] = True
+					voxels[startx,starty,startz] = False
+					while len(stack) > 0:
+						x,y,z = stack.pop()
+						for i in xrange(x-distance, x+distance + 1):
+							for j in xrange(y-distance, y+distance + 1):
+								for k in xrange(z-distance, z+distance + 1):
+									if (i-x)**2+(j-y)**2+(k-z)**2 > distance * distance:
+										continue
+									if voxel_exist(voxels, i,j,k):
+										voxels[i,j,k] = False
+										component[i,j,k] = True
+										stack.append([i,j,k])
+					if component.sum() > max_component.sum():
+						max_component = component
+		models[i] = max_component
+	return models
