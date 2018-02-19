@@ -68,7 +68,7 @@ ae_checkpoints = glob('checkpoint/' + args.object + '/reconstruction*_best.npz')
 ae_count = len(ae_checkpoints)
 ae_limit = 1+ (ae_count //2) #minimum number models who need to indicate a voxel should be filled to predict a filled voxel during the ensemble 
 print str(ae_count) + ' auto_encoder experiment checkpoints were discovered'
-print 'If you wish to include more in the ensemble please run: auto_encoder.py -ensemble K, where K is some new experiment name'
+print 'If you wish to include more in the ensemble please run: recon.py -ensemble K, where K is some new experiment name'
 print '----------------------------------------------------------'
 
 files= grab_images(img_data_dir, data_dir) 
