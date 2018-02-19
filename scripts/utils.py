@@ -8,7 +8,7 @@ import random
 import tensorlayer as tl
 from PIL import Image
 from voxel import *
-
+from tqdm import tqdm 
 # making some subdirectories, checkpoint stores the models,
 # savepoint saves some created objects at each epoch
 def make_directories(checkpoint,savepoint): 
@@ -26,32 +26,35 @@ def make_batch(files, h, l, valid = False, side = -1, occupancy = False):
 	start_time = time.time()
 	alter = (side == -1)  ### if the odm side should be random or not 
 	for i,f in enumerate(files):
+		
 		if alter: 
-			side = random.randint(0, 5) if not valid else i%6 
+			side = random.randint(0, 5) if not valid else (i%6)
+			
 		sides.append(np.ones((l,l,1))*side)
 		file = f.split('_')[0] + '_' + str(side)  + '_' + f.split('_')[-1]
 		face = sio.loadmat(file)
 
 		high = (face['high_odm']).reshape((h,h,1))
-		low  = (face['low_odm']).reshape((l,l,1))
-
+		low  = (face['low_odm']).reshape((l,l,1)) 
 		if not occupancy:
 			a,b,c = np.where(low > 0) 
 			up = np.zeros((h,h,1))
-			for x,y,z in zip(a,b,c): 
-				up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1), 0] = (low[x,y,0] -1) *ratio  +1 #  uscale low resolution odm 
-
-			change = np.where(high == 0)
+			for x,y,z in zip(a,b,c):  
+				up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1), 0] = (low[x,y,0]) *ratio 
+			change = np.where(high == h)
+			up = up + 1
 			up[change] = 0
-			highs.append(high)
-			low_ups.append(up)
-
-		else: 
-			change = np.where( high != 0  )
-			high[change] = 1. 
+			high = high + 1 
+			high[change] = 0  
+			highs.append(high) 
+			low_ups.append(up)			
+		else:
+			on = np.where( high != h )
+			off = np.where( high == h )
+			high[on ] = 1. 
+			high[off] = 0. 
 			highs.append(high)
 		lows.append(low)
-		
 
 	gen = {'high':np.array(highs), 'low': np.array(lows),'low_up':np.array(low_ups), 'side': np.array(sides)}
 	return gen, start_time
@@ -194,13 +197,16 @@ def recover_depths(preds, ups, high, dis):
 def recover_occupancy(preds, high, threshold = .5): 
 	preds[np.where( preds >  threshold)] = 1.
 	preds[np.where( preds <= threshold)] = 0.
+	# for o in preds: 
+	# 	img = Image.fromarray(o.reshape((256,256))*)
+	# 	img.show()
+	# 	raw_input()
 	return preds.reshape((-1,high,high))
 
 
 # smooths over odm images
 def smoothing(odms, high, threshold): 
-	return odms 
-	for i,odm in enumerate(odms):
+	for i,odm in tqdm(enumerate(odms)):
 		copy = np.array(odm)
 		on = np.where(odm != 0)
 		for x,y in zip(*on):
@@ -214,9 +220,13 @@ def smoothing(odms, high, threshold):
 					total += window[a,b]
 					count +=1.
 			
-			if count > odm[x,y]:
+			if count >0:
 				copy[x,y] = total/count
 		odms[i] = np.round_(copy)
+		# img = Image.fromarray(odms[i].reshape((256,256)))
+		# img.show()
+		# raw_input()
+
 	return odms
 
 
@@ -250,7 +260,7 @@ def apply_occupancy(obj, odms):
 			obj[y,:,z]-=0.25
 		else: 
 			obj[:,y,z]-=0.25
-	ones = np.where(obj>.6)
+	ones = np.where(obj>=.6)
 	zeros = np.where(obj<.6)
 	obj[ones] = 1 
 	obj[zeros] = 0 
@@ -264,7 +274,7 @@ def apply_depth(obj, odms, high):
 		face = np.array(odms[i])
 		on  = np.where(face != 0)
 		if i%2 == 0: 
-			face[on] = 256 - face[on] + 2  # matches how gt obj is created 
+			face[on] = high - face[on] + 1  # matches how gt obj is created 
 		else:
 			face[on] = face[on]  -1 
 		odms[i] = face 
@@ -286,7 +296,7 @@ def apply_depth(obj, odms, high):
 				prediction[pos:high,y,z]-=.25
 		elif x == 5: 
 				prediction[0:pos,y, z]-=.25
-				5
+				
 	ones = np.where(prediction>=1)
 	zeros = np.where(prediction<1)
 	prediction[ones] = 1 
@@ -296,7 +306,7 @@ def apply_depth(obj, odms, high):
 
 def evaluate_SR( prediction, obj, small_obj):
 	all_objs = np.concatenate((small_obj, prediction, obj), axis = 0 )
-	voxel2obj('eval.obj',all_objs, show = True)
+	voxel2obj('eval.obj',prediction, show = True)
 	return
 
 

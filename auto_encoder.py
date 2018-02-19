@@ -10,14 +10,14 @@ from models import *
 import argparse
 
 parser = argparse.ArgumentParser(description='Auto Encoder for 3D object reconstruction from images')
-parser.add_argument('-n','--name', default='plane', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
 parser.add_argument('-ensemble', default='0', help ='The ensemble experiment number being perfomed, you should do up to five')
-parser.add_argument('-d','--data', default='data/voxels/plane/train', help ='The location for the object voxel models.' )
-parser.add_argument('-dv','--datav', default='data/voxels/plane/valid', help ='The location for the object voxel models.' )
-parser.add_argument('-i','--images', default='data/images/plane/train', help ='The location for the images.' )
-parser.add_argument('-iv','--images_valid', default='data/images/plane/valid', help ='The location for the valid images.' )
+parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the object voxel models.' )
+parser.add_argument('-dv','--datav', default='data/voxels/chair/valid', help ='The location for the object voxel models.' )
+parser.add_argument('-i','--images', default='data/images/chair/train', help ='The location for the images.' )
+parser.add_argument('-iv','--images_valid', default='data/images/chair/valid', help ='The location for the valid images.' )
 parser.add_argument('-e','--epochs', default=1500, help ='The number of epochs to run for.', type=int)
-parser.add_argument('-b','--batchsize', default=32, help ='The batch size.', type=int)
+parser.add_argument('-b','--batchsize', default=256, help ='The batch size.', type=int)
 parser.add_argument('-l', '--load', default= False, help='Indicates if a previously loaded model should be loaded.', action = 'store_true')
 parser.add_argument('-le', '--load_epoch', default= 'best', help='The epoch to number to be loaded from, if you just want the best, leave as default.', type=str)
 args = parser.parse_args()
@@ -81,14 +81,14 @@ else:
 ########### train #################
 for epoch in range(start, args.epochs):
 	random.shuffle(files)
-	for idx in xrange(0, len(files)/args.batchsize):
+	for idx in xrange(0, len(files)/args.batchsize/5):
 		batch = random.sample(files, args.batchsize)
 		batch_models, batch_images, start_time = make_batch_images(batch, args.data)
 		
 		batch_loss,_ = sess.run([mse, optim], feed_dict={images: batch_images, models:batch_models })    
 		recon_loss.append(batch_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, loss: %.4f, VALID: %.4f" % (epoch, 
-			args.epochs, idx, len(files)/batchsize, time.time() - start_time, batch_loss, max_IoU))
+			args.epochs, idx, len(files)/batchsize/5, time.time() - start_time, batch_loss, max_IoU))
 
 	########## check validation #############
 	valid_losses = 0.
@@ -102,13 +102,16 @@ for epoch in range(start, args.epochs):
 		v_models[np.where(v_models<.45)] = 0 
 		for m, gt in zip(v_models,gt_models):
 			IoU += evaluate_voxel_prediction(m,gt)
-
+	
 	valid_loss.append(valid_losses)
 	IoU  = IoU / float(valid_length * batchsize)
 	valid_IoU.append(IoU)
 
 	test_valid = max_IoU
 	max_IoU = max(IoU, max_IoU)
+	del(v_images) 
+	del(gt_models)
+	del(v_models)
 	if test_valid != max_IoU: 
 		save_networks(checkpoint_dir, sess, net, name=(scope + args.ensemble ), epoch = str(epoch))
 

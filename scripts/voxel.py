@@ -1,5 +1,5 @@
 import numpy as np
-
+from subprocess import call
 
 # def evaluate_voxel_prediction(preds, gt, thresh):
 #     preds_occupy = preds[:, 1, :, :] >= thresh
@@ -24,7 +24,7 @@ def voxel2mesh(voxels, threshold=0):
     l, m, n = voxels.shape
 
     scale = 0.01
-    cube_dist_scale = 1.1
+    cube_dist_scale = 1
     verts = []
     faces = []
     curr_vert = 0
@@ -39,10 +39,11 @@ def voxel2mesh(voxels, threshold=0):
             verts.extend(scale * (cube_verts + cube_dist_scale * np.array([[i, j, k]])))
             faces.extend(cube_faces + curr_vert)
             curr_vert += len(cube_verts)
+        
     
-
-    
-  
+    # print curr_vert
+    # print len(verts), len(faces)
+    # exit()
 
     return np.array(verts), np.array(faces)
 
@@ -61,6 +62,8 @@ def write_obj(filename, verts, faces):
             f.write('f %d %d %d\n' % tuple(face))
 
 
-def voxel2obj(filename, pred, threshold=0.4):
+def voxel2obj(filename, pred, show='False', threshold=0.4):
     verts, faces = voxel2mesh(pred, threshold )
     write_obj(filename, verts, faces)
+    if show: 
+        call(['meshlab', filename])

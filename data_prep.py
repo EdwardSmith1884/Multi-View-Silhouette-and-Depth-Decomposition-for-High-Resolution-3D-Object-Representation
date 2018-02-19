@@ -202,8 +202,9 @@ def split():
 
 
 # extracts odms from an object 
-def odm(data): 
-	dim = data.shape[0]
+def odm(data, high, low): 
+	dim = data.shape[0] 
+	down = high // low 
 	a,b,c = np.where(data == 1)
 	large = int(dim *1.5)
 	big_list = [[[[-1,large]for j in range(dim)] for i in range(dim)] for k in range(3)]
@@ -219,14 +220,16 @@ def odm(data):
 	faces = np.zeros((6,dim,dim)) # will hold odms 
 	for i in range(dim): 
 		for j in range(dim): 
-			faces[0,i,j] =   1 + dim - big_list[0][i][j][0]        	   if    big_list[0][i][j][0]   > -1 else 0
-			# we subtract from the dimension as we computed the last occurance for half of the faces 
-			# we add 1 as a value of 1 indicates the first voxel is filled, and 0 that no voxle is present along that dimension 
-			faces[1,i,j] =   1 + big_list[0][i][j][1]        		   if    big_list[0][i][j][1]   < large else 0 
-			faces[2,i,j] =   1 + dim - big_list[1][i][j][0]            if    big_list[1][i][j][0]   > -1 else 0
-			faces[3,i,j] =   1 + big_list[1][i][j][1]        		   if    big_list[1][i][j][1]   < large else 0
-			faces[4,i,j] =   1 + dim - big_list[2][i][j][0]            if    big_list[2][i][j][0]   > -1 else 0
-			faces[5,i,j] =   1 + big_list[2][i][j][1]         		   if    big_list[2][i][j][1]   < large else 0
+			faces[0,i,j] =   dim -1 - big_list[0][i][j][0]         if    big_list[0][i][j][0]   > -1 else dim
+			# we subtract from the (dimension -1) as we computed the last occurance, instead of the first for half of the faces
+			faces[1,i,j] =   big_list[0][i][j][1]        		   if    big_list[0][i][j][1]   < large else dim 
+			faces[2,i,j] =   dim -1 - big_list[1][i][j][0]         if    big_list[1][i][j][0]   > -1 else dim
+			faces[3,i,j] =   big_list[1][i][j][1]        		   if    big_list[1][i][j][1]   < large else dim
+			faces[4,i,j] =   dim -1 - big_list[2][i][j][0]         if    big_list[2][i][j][0]   > -1 else dim
+			faces[5,i,j] =   big_list[2][i][j][1]         		   if    big_list[2][i][j][1]   < large else dim
+
+
+
 	return faces
 
 
@@ -235,8 +238,7 @@ def odm(data):
 def convert_bin():
 	low = args.low 
 	high = args.high
-	down = high // low 
-
+	down = high // low
 	for s in wanted_classes:
 		directory = 'data/voxels/'+labels[s]+'/train/' 
 		if not os.path.exists(directory):
@@ -289,8 +291,8 @@ def convert_bin():
 					low_model[ndimage.binary_fill_holes(low_model)] = 1
 
 					# obtain odms 
-					faces = odm(model)
-					low_faces = odm(low_model)
+					faces = odm(model, high,low)
+					low_faces = odm(low_model, high,low)
 					
 					if e < 2: 
 						if e == 0: 
@@ -319,17 +321,17 @@ def convert_bin():
 						for i in range(high): 
 							for j in range(high): 
 								if faces[0,i,j] >0:
-									corrected[i,j,int((256 - faces[0,i,j]) +2):high]=0
+									corrected[i,j,int((high - faces[0,i,j])):high]=0
 								else: 
 									corrected[i,j,:] =0
 
 								if faces[1,i,j] >0: 
-									corrected[i,j,0:int(faces[1,i,j]-1)]=0
+									corrected[i,j,0:int(faces[1,i,j])]=0
 								else: 
 									corrected[i,j,:] =0
 
 								if faces[2,i,j] >0: 
-									corrected[i,int((256 - faces[2,i,j]) +2):high, j] =0 
+									corrected[i,int((high - faces[2,i,j])):high, j] =0 
 								else: 
 									corrected[i,:,j] =0
 
@@ -339,7 +341,7 @@ def convert_bin():
 									corrected[i,:,j] =0
 
 								if faces[4,i,j] >0:
-									corrected[int((256 - faces[4,i,j])+2):high,i,j] =0 
+									corrected[int((high - faces[4,i,j])):high,i,j] =0 
 								else: 
 									corrected[:,i,j] =0
 
@@ -402,25 +404,25 @@ def render():
 
 
 
-print '------------'
-print'downloading'
-download()
-print '------------'
-print'downloading mlts'
-process_mtl()
-print '------------'
-print'converting .obj to binvoxes'
-binvox()
-print '------------'
-print'splitting data'
-split()
-print '------------'
+# print '------------'
+# print'downloading'
+# download()
+# print '------------'
+# print'downloading mlts'
+# process_mtl()
+# print '------------'
+# print'converting .obj to binvoxes'
+# binvox()
+# print '------------'
+# print'splitting data'
+# split()
+# print '------------'
 print'obtaining odms and models'
 convert_bin()
 print '------------'
-print'rendering images'
-render()
-print'finished eratin'
+# print'rendering images'
+# render()
+# print'finished eratin'
 
 
 

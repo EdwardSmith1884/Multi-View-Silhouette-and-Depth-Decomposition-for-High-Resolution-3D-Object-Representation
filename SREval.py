@@ -20,7 +20,7 @@ import argparse
 parser = argparse.ArgumentParser(description='3D-GAN implementation for 32*32*32 voxel output')
 parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
 parser.add_argument('-d','--data', default='data/voxels/chair/test', help ='The location for the depth maps.' )
-parser.add_argument('-b','--batchsize', default=16, help ='The batch size.', type=int)
+parser.add_argument('-b','--batchsize', default=1, help ='The batch size.', type=int)
 parser.add_argument('-depth','--depth', default='best', help ='Epoch from which to load the depth map predictor, if you want the best leave default.' )
 parser.add_argument('-occ','--occ', default='best', help ='Epoch from which to load the occupancy map predictor, if you want the best leave default.' )
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
@@ -70,7 +70,7 @@ for idx in xrange(0, len(files)/args.batchsize):
 		batch, _    = make_batch(cur_files, high, low, side = k)
 		depths, occs = sess.run([depth_pred,occ_pred], feed_dict={images_low:batch['low'], side: batch['side']})     
 		odms.append(recover_odms(depths, occs, batch['low_up'], high, low, distance, threshold = 1.5*high//low)) # combining depths and occupancy maps to recover full odms 
-	
+		
 	# combining information 
 	odms =  zip(odms[0], odms[1], odms[2], odms[3], odms[4], odms[5])
 	objs, small_objs = make_objs(cur_files) # loading the ground truth object and input object
