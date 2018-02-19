@@ -54,11 +54,51 @@ python occupancy.py
 ```bash
 python SREval.py
 ```
-These all assume the default chair classes is being increased from resolution 32 to resolution 256. To alter this call each script with the -h argument to view how to change each parameter. The two networks should not need more then 100 epochs to train fully, and graphs are created and saved in the '/plots/' directory should you wish to stop training early. The 'SREval.py' script will show predicted high resolution objects one at a time along side their input object and their ground truth high resolution object using meshlab. If you do not have meshlab installed call: 
+These all assume the default chair classes is being increased from resolution 32 to resolution 256. To alter this call each script with the -h argument to view how to change each parameter. The two networks should not need more then 100 epochs to train fully, and graphs are created and saved in the '/plots/' directory should you wish to stop training early. The 'SREval.py' script will show predicted high resolution objects one at a time using meshlab. If you do not have meshlab installed call: 
 
 ```bash
 sudo apt-get install meshlab
 ```
+ The overhead for this script is converting the large voxel life into a mesh for viewing, the actual method is quite fast. 
+
+<ul align="center">
+  <img  src="images/SRChair.png" width="400" >
+  <img  src="images/SRPlane.png" width="400" >
+</ul>
+Exmaple objects reconstructed from images. For each class, the left shows the input images, the center shows the predicted objects, and the right the ground truth. High definition copies of these images can be found in the Images folder.  
+
+
+## High Resolution Single Image Object Reconstruction 
+The second element of this repo is applying our Super-Resolution method to reconstructing high resolution obejcts from single RGB images. For this application an ensemble of auto-encoders is used to produce low resolution reconstructions of objects from images, and then our super resolution method is applied to the resulting objects to prduce high resolution reconstructions. 
+
+![Diagram](images/PipeLine.png?raw=true "Title")
+The full pipeline for high resolution 3D object reconstruction from images.
+
+Assuming the depth and occupancy predictors have already been trained simply call the following code to train an auto-encoder for the low resolution reconstruction: 
+```bash
+python recon.py 
+```
+To understand how to change the parameters of the fucntion call with the -h argument. One can test with only a single auto-encoder, however, should you wish to achive as high accuracy as cited in our paper you should train an ensemble. To train further models, call: 
+```bash
+python recon.py -ensemble K
+```
+where ```K``` is the current ensemble number, the default number is zero. 
+
+To test to perfomance of the trained models call: 
+```bash
+python ReconEval.py
+```
+This fucntion will show the input image and render the produced high resolution object on at a time. Again, the largest overhead in this script is converting the voxel objects into meshes for visualization.To understand how to change the parameters of this script use the -h arugment when calling. All parameters are set by default to using the chair class and increase the resolution from 32^3 to 256^3. 
+
+<ul align="center">
+  <img  src="images/ReconPlane.png" width="400" >
+  <img  src="images/ReconCar.png" width="400" >
+</ul>
+Exmaple objects reconstructed from images. For each class, the left shows the input images, the center shows the predicted objects, and the right the ground truth. High definition copies of these images can be found in the Images folder.  
+
+
+
+
 
 
 
