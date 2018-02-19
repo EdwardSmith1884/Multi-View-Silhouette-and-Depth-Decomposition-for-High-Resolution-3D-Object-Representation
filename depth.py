@@ -12,7 +12,7 @@ import argparse
 from PIL import Image
 
 parser = argparse.ArgumentParser(description='Depth mep predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='chairTest', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
 parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
 parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
@@ -90,7 +90,7 @@ else:
 min_recon = 100000. 
 
 for epoch in xrange(start, args.epochs):
-	for idx in xrange(len(files)//batchsize/10):
+	for idx in xrange(len(files)//batchsize):
 		batch = random.sample(files, batchsize)
 		batch,  start_time = make_batch(batch, high, low)
 
@@ -99,7 +99,7 @@ for epoch in xrange(start, args.epochs):
 		if epoch > 0:  
 			recon_loss.append(L2_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, MSE:%.4f, Loss: %.4f, VALID: %.4f" % 
-			(epoch, args.epochs, idx, len(files)//batchsize/10, time.time() - start_time, L2_loss, batch_loss, min_recon))        
+			(epoch, args.epochs, idx, len(files)//batchsize, time.time() - start_time, L2_loss, batch_loss, min_recon))        
 		sys.stdout.flush()
 
 	######## check validation error ###########
@@ -122,14 +122,7 @@ for epoch in xrange(start, args.epochs):
 	ground_truth = np.array((valid['high'])).reshape((3*batchsize,high,high))	
 	off = np.where(ground_truth == 0) 
 	reconstruction[off] = 0.
-	for i in range(40):
-		break
-		print i
-		Image.fromarray(reconstruction[i]).show()
-		Image.fromarray(ground_truth[i]).show()
-		raw_input()
-
-
+	
 	mean_squared_error = np.mean(np.square(reconstruction - ground_truth))
 	exact_valid_loss.append(mean_squared_error)
 	valid_loss.append(v_loss)
@@ -141,7 +134,7 @@ for epoch in xrange(start, args.epochs):
 		save_networks(checkpoint_dir, sess, net,name = (scope), epoch = str(epoch))
 
 	####### save graphs #####
-	#render_graphs(save_dir, epoch, recon_loss, valid_loss, exact_valid_loss,)
+	render_graphs(save_dir, epoch, recon_loss, valid_loss, exact_valid_loss,)
 
 
 
