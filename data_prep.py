@@ -38,8 +38,14 @@ if args.low >= args.high:
 
 #labels for the union of the core shapenet classes and the ikea dataset classes 
 labels = {'03001627' : 'chair', 
-'04128520': 'sofa', '04379243': 'table', '02858304':'boat', '02958343':'car',  
-'02691156': 'plane' }
+ '04379243': 'table', '02858304':'boat', '02958343':'car',  
+'02691156': 'plane', '02808440': 'bathtub',  '02871439': 'bookcase', 
+'02773838': 'bag', '02801938': 'basket', '02828884' : 'bench','02880940': 'bowl' , 
+'02924116': 'bus', '02933112': 'cabinet', '02942699': 'camera', '02958343': 'car', '03207941': 'dishwasher', 
+'03211117' : 'display', '03337140': 'file', '03624134': 'knife', '03642806': 'laptop', '03710193': 'mailbox',
+'03761084': 'microwave', '03928116': 'piano', '03938244':'pillow', '03948459': 'pistol', '04004475': 'printer', 
+'04099429': 'rocket', '04256520': 'sofa', '04554684': 'washer' }
+ 
  
 
 wanted_classes=[]
