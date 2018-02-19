@@ -11,9 +11,7 @@ from sklearn.metrics import mean_squared_error as mse
 import argparse
 
 parser = argparse.ArgumentParser(description='Occupancy map predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
-parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
+parser.add_argument('-o','--object', default='chair', help='The name of the object to train')
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
 parser.add_argument('-b','--batchsize', default=64, help ='The batch size.', type=int)
 parser.add_argument('-high', default= 256, help='The size of the high dimension objects.', type= int)
@@ -22,8 +20,12 @@ parser.add_argument('-l', '--load', default= False, help='Indicates if a previou
 parser.add_argument('-le', '--load_epoch', default= 'best', help='The epoch to number to be loaded from, if you just want the best, leave as default.', type=str)
 args = parser.parse_args()
 
-checkpoint_dir = "checkpoint/" + args.name +'/'
-save_dir =  "plots/" + args.name +'/'
+checkpoint_dir = "checkpoint/" + args.object +'/'
+save_dir =  "plots/" + args.object +'/'
+data_dir = 'data/voxels/' + args.object+ '/train'
+valid_dir = 'data/voxels/' + args.object+ '/valid'
+random.seed(0)
+
 high = args.high 
 low = args.low
 ratio = high // low 
@@ -66,8 +68,8 @@ sess.run(tf.global_variables_initializer())
 if args.load: 
 	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (scope))
 recon_loss, exact_valid_loss, valid_loss = [],[],[]
-files = grab_files(args.data)
-valid = grab_files(args.valid)[:valid_length*batchsize]
+files = grab_files(data_dir)
+valid = grab_files(valid_dir)[:valid_length*batchsize]
 valid, _  = make_batch(valid, high, low, occupancy = True, valid = True)
 
 
@@ -81,15 +83,15 @@ else:
 	start = 0 
 min_recon = 100000. 
 for epoch in range(start, args.epochs):
-	for idx in xrange(len(files)/ batchsize/10):
+	for idx in xrange(len(files)/ batchsize):
 		batch = random.sample(files, batchsize)
-		batch, start_time = make_batch(batch, high, low, args.data, occupancy = True)
+		batch, start_time = make_batch(batch, high, low, occupancy = True)
 
 		batch_loss, _ = sess.run( [loss, optim], feed_dict={images_high:batch['high'], images_low: batch['low'], side : batch['side']})  
 		if epoch > 0:  
 			recon_loss.append(batch_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, loss: %.4f, VALID: %.4f" % (epoch, 
-			args.epochs, idx, len(files)/batchsize/10, time.time() - start_time, batch_loss, min_recon))
+			args.epochs, idx, len(files)/batchsize, time.time() - start_time, batch_loss, min_recon))
 		sys.stdout.flush()
 
   

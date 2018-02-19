@@ -1,15 +1,7 @@
 import numpy as np
-from subprocess import call
-
-# def evaluate_voxel_prediction(preds, gt, thresh):
-#     preds_occupy = preds[:, 1, :, :] >= thresh
-#     diff = np.sum(np.logical_xor(preds_occupy, gt[:, 1, :, :]))
-#     intersection = np.sum(np.logical_and(preds_occupy, gt[:, 1, :, :]))
-#     union = np.sum(np.logical_or(preds_occupy, gt[:, 1, :, :]))
-#     num_fp = np.sum(np.logical_and(preds_occupy, gt[:, 0, :, :]))  # false positive
-#     num_fn = np.sum(np.logical_and(np.logical_not(preds_occupy), gt[:, 1, :, :]))  # false negative
-#     return np.array([diff, intersection, union, num_fp, num_fn])
-
+import os 
+def call(command):
+    os.system('%s > /dev/null 2>&1' % command)
 
 def voxel2mesh(voxels, threshold=0):
     cube_verts = [[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
@@ -21,10 +13,8 @@ def voxel2mesh(voxels, threshold=0):
     cube_verts = np.array(cube_verts)
     cube_faces = np.array(cube_faces) + 1
 
-    l, m, n = voxels.shape
-
     scale = 0.01
-    cube_dist_scale = 1
+    cube_dist_scale = 1.1
     verts = []
     faces = []
     curr_vert = 0
@@ -41,9 +31,6 @@ def voxel2mesh(voxels, threshold=0):
             curr_vert += len(cube_verts)
         
     
-    # print curr_vert
-    # print len(verts), len(faces)
-    # exit()
 
     return np.array(verts), np.array(faces)
 
@@ -64,6 +51,7 @@ def write_obj(filename, verts, faces):
 
 def voxel2obj(filename, pred, show='False', threshold=0.4):
     verts, faces = voxel2mesh(pred, threshold )
+    
     write_obj(filename, verts, faces)
-    if show: 
-        call(['meshlab', filename])
+    call('meshlabserver -i ' + filename + ' -o ' + filename + ' -s scripts/mesh.mlx')
+    call('meshlab ' + filename)

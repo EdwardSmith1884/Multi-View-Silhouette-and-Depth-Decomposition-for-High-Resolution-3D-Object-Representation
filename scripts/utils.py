@@ -8,7 +8,8 @@ import random
 import tensorlayer as tl
 from PIL import Image
 from voxel import *
-from tqdm import tqdm 
+from tqdm import tqdm
+np.warnings.filterwarnings('ignore')
 # making some subdirectories, checkpoint stores the models,
 # savepoint saves some created objects at each epoch
 def make_directories(checkpoint,savepoint): 
@@ -193,26 +194,23 @@ def recover_depths(preds, ups, high, dis):
 		pred[off] = 0. 
 		preds[i] = pred
 	return preds
+
 # compute complete occupancy map, basically thresholds the probability outputs  
 def recover_occupancy(preds, high, threshold = .5): 
 	preds[np.where( preds >  threshold)] = 1.
 	preds[np.where( preds <= threshold)] = 0.
-	# for o in preds: 
-	# 	img = Image.fromarray(o.reshape((256,256))*)
-	# 	img.show()
-	# 	raw_input()
 	return preds.reshape((-1,high,high))
 
 
 # smooths over odm images
-def smoothing(odms, high, threshold): 
-	for i,odm in tqdm(enumerate(odms)):
+def smoothing(odms, high,low, threshold): 
+	for i,odm in (enumerate(odms)):
 		copy = np.array(odm)
-		on = np.where(odm != 0)
+		on = np.where(odm != high)
 		for x,y in zip(*on):
 			window = odm[max(0,x-3):min(high-1, x+4),max(0,y-3):min(high-1,y+4)] #window
 		
-			considered =  np.where( window != 0)
+			considered =  np.where( window != high)
 			total = 0.
 			count = 0.
 			for a,b in zip(*considered): 
@@ -223,10 +221,21 @@ def smoothing(odms, high, threshold):
 			if count >0:
 				copy[x,y] = total/count
 		odms[i] = np.round_(copy)
-		# img = Image.fromarray(odms[i].reshape((256,256)))
-		# img.show()
-		# raw_input()
+	return odms
+# smooths over odm images
+def fast_smoothing(odms, high, low, threshold): 
+	for i,odm in (enumerate(odms)):
+		copy = np.array(odm)
+		on = np.where(odm != high)
+		for x,y in zip(*on):
+			window = odm[x-3:x+4,y-3:y+4] #window
+		
+			considered =  np.where( abs(window - odm[x,y])< threshold)
+			copy[x,y] = np.average(window[considered])
 
+
+		odms[i] = np.round_(copy)
+		
 	return odms
 
 
@@ -236,8 +245,11 @@ def recover_odms(depths, occs, ups, high, low, dis, threshold = 20):
 	odms = recover_depths(depths, ups, high, dis)
 	occs = recover_occupancy(occs, high)
 	off = np.where(occs == 0 )
-	odms[off] = 0
-	odms = smoothing(np.array(odms), high, threshold)
+	odms = odms -1 # we added 1 for training to allow 0 to signify infinity, this is now fixed 
+	odms[off] = high 
+
+	odms= fast_smoothing(np.array(odms), high, low,  threshold)
+	
 	return odms
 
 # nearest neighbor upsampling of object
@@ -269,18 +281,16 @@ def apply_occupancy(obj, odms):
 # carves away at object using the odm depth prediction 
 def apply_depth(obj, odms, high):
 	# recovering the origional data collected 
-	off = np.where(odms == 0)
 	for i in range(6): 
-		face = np.array(odms[i])
-		on  = np.where(face != 0)
 		if i%2 == 0: 
-			face[on] = high - face[on] + 1  # matches how gt obj is created 
-		else:
-			face[on] = face[on]  -1 
-		odms[i] = face 
-	odms[off] = high * 2 
+			face = np.array(odms[i])
+			on  = np.where(face != high)
+			face[on] = high - face[on]  # reverse image back
+			odms[i] = face 
 
 	prediction = np.array(obj)
+	
+
 	depths = np.where(odms<=high)
 	for x,y,z in zip(*depths):
 		pos = int(odms[x,y,z])
@@ -304,9 +314,12 @@ def apply_depth(obj, odms, high):
 	return prediction 
 
 
-def evaluate_SR( prediction, obj, small_obj):
+def evaluate_SR( prediction, obj, small_obj, gt = False):
 	all_objs = np.concatenate((small_obj, prediction, obj), axis = 0 )
-	voxel2obj('eval.obj',prediction, show = True)
+	if gt: 
+		voxel2obj('eval.obj',all_objs, show = True)
+	else: 
+		voxel2obj('eval.obj',prediction, show = True)
 	return
 
 
@@ -322,7 +335,7 @@ def evaluate_voxel_prediction(prediction,gt):
 
 # extracts odms from an object 
 def odm(data): 
-	dim = data.shape[0]
+	dim = data.shape[0] 
 	a,b,c = np.where(data == 1)
 	large = int(dim *1.5)
 	big_list = [[[[-1,large]for j in range(dim)] for i in range(dim)] for k in range(3)]
@@ -338,18 +351,19 @@ def odm(data):
 	faces = np.zeros((6,dim,dim)) # will hold odms 
 	for i in range(dim): 
 		for j in range(dim): 
-			faces[0,i,j] =   1 + dim - big_list[0][i][j][0]        	   if    big_list[0][i][j][0]   > -1 else 0
-			# we subtract from the dimension as we computed the last occurance for half of the faces 
-			# we add 1 as a value of 1 indicates the first voxel is filled, and 0 that no voxle is present along that dimension 
-			faces[1,i,j] =   1 + big_list[0][i][j][1]        		   if    big_list[0][i][j][1]   < large else 0 
-			faces[2,i,j] =   1 + dim - big_list[1][i][j][0]            if    big_list[1][i][j][0]   > -1 else 0
-			faces[3,i,j] =   1 + big_list[1][i][j][1]        		   if    big_list[1][i][j][1]   < large else 0
-			faces[4,i,j] =   1 + dim - big_list[2][i][j][0]            if    big_list[2][i][j][0]   > -1 else 0
-			faces[5,i,j] =   1 + big_list[2][i][j][1]         		   if    big_list[2][i][j][1]   < large else 0
+			faces[0,i,j] =   dim -1 - big_list[0][i][j][0]         if    big_list[0][i][j][0]   > -1 else dim
+			# we subtract from the (dimension -1) as we computed the last occurance, instead of the first for half of the faces
+			faces[1,i,j] =   big_list[0][i][j][1]        		   if    big_list[0][i][j][1]   < large else dim 
+			faces[2,i,j] =   dim -1 - big_list[1][i][j][0]         if    big_list[1][i][j][0]   > -1 else dim
+			faces[3,i,j] =   big_list[1][i][j][1]        		   if    big_list[1][i][j][1]   < large else dim
+			faces[4,i,j] =   dim -1 - big_list[2][i][j][0]         if    big_list[2][i][j][0]   > -1 else dim
+			faces[5,i,j] =   big_list[2][i][j][1]         		   if    big_list[2][i][j][1]   < large else dim
+
 	return faces
 
 def extract_odms(models, factor, high, low): 
 	low_ups = []
+	ratio = high // low 
 	views = np.ones((6, low,low, 1))
 	odms = []
 	split = models.shape[0]/factor
@@ -358,31 +372,40 @@ def extract_odms(models, factor, high, low):
 	for model in models: 
 		model = model.reshape((low, low ,low))
 		faces = odm(model)
-		low_ups += [ extract_low_up(face, high, low) for face in faces]
+
+		for f in np.array(faces):# extract upscaled low resolution image 
+			a,b = np.where(f > 0) 
+			up = np.zeros((high,high))
+			for x,y in zip(a,b):  
+				up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1)] = (f[x,y]) *ratio 
+			change = np.where(up == high)
+			up = up + 1 # here we add one to allow 0 to signify infinity
+			up[change] = 0 
+			low_ups.append(up)
+
+
 		faces = np.concatenate((faces.reshape((6, low , low , 1)), views), axis = 3 ) 
 		odms += list(faces)
 	return np.array([odms[i*split:(i+1)*split] for i in range(factor*6)]), np.array([low_ups[i*split:(i+1)*split] for i in range(factor*6)])
 
 
-def extract_low_up(odm, high, low ): 
-	ratio  = high // low 
-	a,b = np.where(odm > 0) 
-	up = np.zeros((high,high,1))
-	for x,y in zip(a,b): 
-		up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1)] = (odm[x,y] -1) *ratio  +1 #  uscale low resolution odm 
-	return up.reshape((256,256))
-		
-def evaluate_reconstruction(instance, voxel_dir, high, low): 
-	pred_model, pred_odms, name = instance 
+def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False): 
+	pred_model, pred_odms, name, image = instance 
 	upsampled_obj = upsample(pred_model, high, low) # want this to display alongside high res models 
 	pred_model = apply_occupancy(np.array(upsampled_obj), np.array(pred_odms))
 	pred_model = apply_depth(pred_model, np.array(pred_odms), high)
 	pred_obj = mirror(pred_model, high) # want to mirror for symmetry, gives small accuracy boost, more attractive
-	name = name.split('/')[-1].split('_')[0]
-	gt_obj= sio.loadmat(voxel_dir+ '/full_object_' +name +'.mat')['model'] # low high res ground truth 
-	all_objs = np.concatenate((upsampled_obj, pred_obj, gt_obj), axis = 0 )
-	voxel2obj('eval.obj',gt_obj, show = True)
+	img = Image.fromarray(image)
+	img.show()
 
+	if gt: 
+		name = name.split('/')[-1].split('_')[0]
+		gt_obj= sio.loadmat(voxel_dir+ '/full_object_' +name +'.mat')['model'] # low high res ground truth 
+		all_objs = np.concatenate((upsampled_obj, pred_obj, gt_obj), axis = 0 )
+		voxel2obj('eval.obj',all_objs, show = True)
+	else: 
+		voxel2obj('eval.obj',pred_obj, show = True)
+	img.close()
 
 
 def plotVoxelVisdom(voxels, visdom, title):

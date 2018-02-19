@@ -7,28 +7,27 @@ import random
 from glob import glob
 from utils import *
 from models import *
-from sklearn.metrics import mean_squared_error as mse
 import argparse
-from tqdm import tqdm
-
 
 parser = argparse.ArgumentParser(description='Evaluation of 3D object reconstruction at high resolutions. ')
-parser.add_argument('-n','--name', default='plane', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/plane/test', help ='The location for the depth maps.' )
-parser.add_argument('-i','--images', default='data/images/plane/test', help ='The location for the images.' )
+parser.add_argument('-o','--object', default='chair', help='The name of the object to train')
 parser.add_argument('-b','--batchsize', default=8, help ='The batch size.', type=int)
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
 parser.add_argument('-high', default= 256, help='The size of the high dimension objects.', type= int)
 parser.add_argument('-low', default= 32, help='The size of the low dimension object.', type= int)
 
+
 args = parser.parse_args()
 batchsize = args.batchsize
-name = args.name
 high = args.high
 low = args.low
 ratio = high // low 
 distance = args.distance
 random.seed(0)
+
+
+data_dir = 'data/voxels/' + args.object+ '/test'
+img_data_dir = 'data/images/' + args.object+ '/test'
 
 print 'We assume here that depth.py, occupancy.py and auto_encoder.py have all be called already, and so trained models exist'
 print 'The best model from these trainings will be selected automatically and used to train'
@@ -56,23 +55,23 @@ sess.run(tf.global_variables_initializer())
 
 
 
-net_depth_loaded_params = tl.files.load_npz(name='checkpoint/' + name + '/depth_best.npz')
+net_depth_loaded_params = tl.files.load_npz(name='checkpoint/' + args.object + '/depth_best.npz')
 tl.files.assign_params(sess, net_depth_loaded_params, net_depth)
-net_occ_loaded_params = tl.files.load_npz(name='checkpoint/' + name + '/occ_best.npz')
+net_occ_loaded_params = tl.files.load_npz(name='checkpoint/' +args.object + '/occ_best.npz')
 tl.files.assign_params(sess, net_occ_loaded_params, net_occ)
 
 print '----------------------------------------------------------'
 print 'We assume here that depth.py, occupancy.py and auto_encoder.py have all be called already, and so trained models exist'
 print 'The best model from these trainings will be selected automatically and used to train'
 
-ae_checkpoints = glob('checkpoint/' + name + '/reconstruction*_best.npz') # getting all reconstruction experiments 
+ae_checkpoints = glob('checkpoint/' + args.object + '/reconstruction*_best.npz') # getting all reconstruction experiments 
 ae_count = len(ae_checkpoints)
 ae_limit = 1+ (ae_count //2) #minimum number models who need to indicate a voxel should be filled to predict a filled voxel during the ensemble 
 print str(ae_count) + ' auto_encoder experiment checkpoints were discovered'
 print 'If you wish to include more in the ensemble please run: auto_encoder.py -ensemble K, where K is some new experiment name'
 print '----------------------------------------------------------'
 
-files= grab_images(args.images, args.data) 
+files= grab_images(img_data_dir, data_dir) 
 random.shuffle(files)
 
 batch = []
@@ -81,7 +80,7 @@ for f in files:
 	if len(batch) == batchsize*4:
 
 		######## ensemble to predict low resolution model ########
-		batch_models, batch_images,_ = make_batch_images(batch, args.data)
+		batch_models, batch_images,_ = make_batch_images(batch, data_dir)
 		pred_models = np.zeros((batchsize*4, low, low, low))
 		for j in range(ae_count):
 			net_auto_loaded_params = tl.files.load_npz(name=ae_checkpoints[j])
@@ -106,9 +105,9 @@ for f in files:
 		pred_odms = [ pred_odms[i*6:(i+1)*6] for i in range(len(pred_odms)/6)] # combining odms from the same model 
 
 		####### evaluate the models ############	
-		combined_information = zip(pred_models, pred_odms, batch)
-		for instance in tqdm(combined_information):			
-			evaluate_reconstruction(instance, args.data, high, low) #evaluate each model -> viewing only
-			exit()
+		combined_information = zip(pred_models, pred_odms, batch, batch_images)
+		for instance in (combined_information):			
+			evaluate_reconstruction(instance, data_dir, high, low, gt = False) #evaluate each model -> viewing only
+
 			
 

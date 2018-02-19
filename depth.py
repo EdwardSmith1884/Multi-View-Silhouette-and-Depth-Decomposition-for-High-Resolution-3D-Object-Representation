@@ -12,9 +12,7 @@ import argparse
 from PIL import Image
 
 parser = argparse.ArgumentParser(description='Depth mep predictor for 3D Super Resolution')
-parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/chair/train', help ='The location for the training voxel data.' )
-parser.add_argument('-v','--valid', default='data/voxels/chair/valid', help ='The location for the validation voxel data.' )
+parser.add_argument('-o','--object', default='chair', help='The name of the object to train')
 parser.add_argument('-e','--epochs', default= 250, help ='The number of epochs to run for.', type=int)
 parser.add_argument('-b','--batchsize', default=64, help ='The batch size.', type=int)
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
@@ -24,8 +22,11 @@ parser.add_argument('-l', '--load', default= False, help='Indicates if a previou
 parser.add_argument('-le', '--load_epoch', default= 'best', help='The epoch to number to be loaded from, if you just want the best, leave as default.', type=str)
 args = parser.parse_args()
 
-checkpoint_dir = "checkpoint/" + args.name +'/'
-save_dir =  "plots/" + args.name +'/'
+checkpoint_dir = "checkpoint/" + args.object +'/'
+save_dir =  "plots/" + args.object +'/'
+data_dir = 'data/voxels/' + args.object+ '/train'
+valid_dir = 'data/voxels/' + args.object+ '/valid'
+random.seed(0)
 high = args.high 
 low = args.low
 ratio = high // low 
@@ -74,8 +75,8 @@ sess.run(tf.global_variables_initializer())
 if args.load: 
 	load_networks(checkpoint_dir, sess, net, args.load_epoch, name = (scope))
 recon_loss, exact_valid_loss, valid_loss = [],[],[]
-files = grab_files(args.data)
-valid = grab_files(args.valid)[:valid_length*batchsize]
+files = grab_files(data_dir)
+valid = grab_files(valid_dir)[:valid_length*batchsize]
 valid, _  = make_batch(valid, high, low, valid = True)
 
 

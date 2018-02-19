@@ -23,7 +23,7 @@ from subprocess import call
 # this is the dataset for object translation, it will download the object files, convert then into numpy matricies, and overlay them onto pictures from the sun dataset 
 
 parser = argparse.ArgumentParser(description='Dataset prep for image to 3D object super resolution')
-parser.add_argument('-o','--objects', default=['chair'], help='List of object classes to be used downloaded and converted.', nargs='+' )
+parser.add_argument('-o','--object', default=['chair'], help='List of object classes to be used downloaded and converted.', nargs='+' )
 parser.add_argument('-no','--num_objects', default=10000, help='number of objects to be converted', type = int)
 parser.add_argument('-ni','--num_images', default=10, help='number of images to be created for each object', type = int)
 parser.add_argument('-l','--low', default=32, help='Low resolution value', type = int)
@@ -44,7 +44,7 @@ labels = {'03001627' : 'chair',
 
 wanted_classes=[]
 for l in labels: 
-	if labels[l] in args.objects:
+	if labels[l] in args.object:
 		wanted_classes.append(l)
 
 
@@ -404,25 +404,25 @@ def render():
 
 
 
-# print '------------'
-# print'downloading'
-# download()
-# print '------------'
-# print'downloading mlts'
-# process_mtl()
-# print '------------'
-# print'converting .obj to binvoxes'
-# binvox()
-# print '------------'
-# print'splitting data'
-# split()
-# print '------------'
+print '------------'
+print'downloading'
+download()
+print '------------'
+print'downloading mlts'
+process_mtl()
+print '------------'
+print'converting .obj to binvoxes'
+binvox()
+print '------------'
+print'splitting data'
+split()
+print '------------'
 print'obtaining odms and models'
 convert_bin()
 print '------------'
-# print'rendering images'
-# render()
-# print'finished eratin'
+print'rendering images'
+render()
+print'finished eratin'
 
 
 

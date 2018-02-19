@@ -1,26 +1,17 @@
 import tensorflow as tf 
-import keras.backend as K 
 import os
 import sys 
 sys.path.insert(0, './scripts/')
 import tensorlayer as tl
 import numpy as np
-from tensorlayer.layers import *
-import random 
-from tqdm import tqdm
-from glob import glob
-from voxel import * 
+import random  
 from utils import *
 from models import *
-from scipy import ndimage
-from sklearn.metrics import mean_squared_error as mse
-from scipy.ndimage.interpolation import rotate
 import argparse
 
 parser = argparse.ArgumentParser(description='3D-GAN implementation for 32*32*32 voxel output')
-parser.add_argument('-n','--name', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
-parser.add_argument('-d','--data', default='data/voxels/chair/test', help ='The location for the depth maps.' )
-parser.add_argument('-b','--batchsize', default=1, help ='The batch size.', type=int)
+parser.add_argument('-o','--object', default='chair', help='The name of the current experiment, this will be used to create folders and save models.')
+parser.add_argument('-b','--batchsize', default=32, help ='The batch size.', type=int)
 parser.add_argument('-depth','--depth', default='best', help ='Epoch from which to load the depth map predictor, if you want the best leave default.' )
 parser.add_argument('-occ','--occ', default='best', help ='Epoch from which to load the occupancy map predictor, if you want the best leave default.' )
 parser.add_argument('-dis','--distance', default=70, help ='The range in which distances will be predicted.', type=int)
@@ -28,7 +19,9 @@ parser.add_argument('-high', default= 256, help='The size of the high dimension 
 parser.add_argument('-low', default= 32, help='The size of the low dimension object.', type= int)
 args = parser.parse_args()
 
-checkpoint_dir = "checkpoint/" + args.name +'/'
+checkpoint_dir = "checkpoint/" + args.object +'/'
+data_dir = 'data/voxels/' + args.object+ '/test'
+
 batchsize      = args.batchsize
 high           = args.high 
 low            = args.low
@@ -59,10 +52,10 @@ sess.run(tf.global_variables_initializer())
 
 load_networks(checkpoint_dir, sess, net_depth, args.depth, name ='depth')
 load_networks(checkpoint_dir, sess, net_occ, args.occ, name = 'occ')
-files = grab_files(args.data)
+files = grab_files(data_dir)
 
 
-for idx in xrange(0, len(files)/args.batchsize):
+for idx in (xrange(0, len(files)/args.batchsize)):
 	odms = []
 	cur_files = files[idx*batchsize:(idx+1)*batchsize]
 	# loops over all sides
@@ -77,13 +70,11 @@ for idx in xrange(0, len(files)/args.batchsize):
 	batch_predictions = zip(odms, objs,  small_objs)
 	
 	print 'finished loading a batch'
-	for odm, obj, small_obj  in tqdm(batch_predictions):
-
-
+	for odm, obj, small_obj  in (batch_predictions):
 		small_obj = upsample(small_obj, high, low)
 		prediction = apply_occupancy(np.array(small_obj), np.array(odm))
 		prediction = apply_depth(np.array(prediction),np.array(odm),high,)
-		evaluate_SR(prediction, obj, small_obj)
+		evaluate_SR(prediction, obj, small_obj, gt = False)
 		
 		
 
