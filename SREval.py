@@ -49,7 +49,7 @@ sess=tf.Session()
 tl.ops.set_gpu_fraction(sess=sess, gpu_fraction=0.999)
 sess.run(tf.global_variables_initializer())
 
-
+# load networks for depth and occupancy
 load_networks(checkpoint_dir, sess, net_depth, args.depth, name ='depth')
 load_networks(checkpoint_dir, sess, net_occ, args.occ, name = 'occ')
 files = grab_files(data_dir)
@@ -69,12 +69,12 @@ for idx in (xrange(0, len(files)/args.batchsize)):
 	objs, small_objs = make_objs(cur_files) # loading the ground truth object and input object
 	batch_predictions = zip(odms, objs,  small_objs)
 	
-	print 'finished loading a batch'
+	# looping over batch 
 	for odm, obj, small_obj  in (batch_predictions):
 		small_obj = upsample(small_obj, high, low)
 		prediction = apply_occupancy(np.array(small_obj), np.array(odm))
 		prediction = apply_depth(np.array(prediction),np.array(odm),high,)
-		evaluate_SR(prediction, obj, small_obj, gt = False)
+		evaluate_SR(prediction, obj, small_obj, gt = False) # render model 
 		
 		
 
