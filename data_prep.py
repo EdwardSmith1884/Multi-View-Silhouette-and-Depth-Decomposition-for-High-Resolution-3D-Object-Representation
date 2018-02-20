@@ -215,7 +215,7 @@ def odm(data, high, low):
 	large = int(dim *1.5)
 	big_list = [[[[-1,large]for j in range(dim)] for i in range(dim)] for k in range(3)]
 	# over the whole object extract for each face the first and last occurance of a voxel at each pixel
-	# we take highest for convinience
+	# the last occrances correspond to reversed odms from the opposite direction, and the 
 	for i,j,k in zip(a,b,c):
 		big_list[0][i][j][0] = (max(k,big_list[0][i][j][0]))
 		big_list[0][i][j][1] = (min(k,big_list[0][i][j][1]))
