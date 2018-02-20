@@ -147,9 +147,11 @@ target = sys.argv[-1]
 
 shape_file = model
 setter = model.split('/')
+# setting vandom viewpoints for caputing objects 
 view_params = [ [random.uniform(0.0,12.0) * 360./12., random.uniform(-20,30.0),  0, 1.25] for i in range(num)]
 bpy.ops.import_scene.obj(filepath=shape_file ) 
 
+# if no texture is provided, we apply a random colour 
 for o in bpy.context.selected_objects:
     if 'material_'  in o.active_material.name:
         r,g,b = (random.uniform(.2,.7),random.uniform(.2,.7), random.uniform(.2,.7))
@@ -169,7 +171,7 @@ for object in bpy.data.objects:
             object.data.show_freestyle_edge_marks = True
 
 
-
+# cycling over each picture 
 for e, param in enumerate(view_params):
 
     result = target +  '_' + str(e) + '.png'
@@ -190,7 +192,7 @@ for e, param in enumerate(view_params):
 
 
 
-
+    #setting random lights 
     for i in range(8):
         light_azimuth_deg = i*360/5
         light_elevation_deg  = np.random.uniform(g_syn_light_elevation_degree_lowbound, g_syn_light_elevation_degree_highbound)
