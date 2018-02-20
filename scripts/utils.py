@@ -314,6 +314,7 @@ def apply_depth(obj, odms, high):
 	return prediction 
 
 
+#evaluation function for super resolution, just renders the object, gt dictates if the ground truth is rendered too 
 def evaluate_SR( prediction, obj, small_obj, gt = False):
 	all_objs = np.concatenate((small_obj, prediction, obj), axis = 0 )
 	if gt: 
@@ -323,7 +324,7 @@ def evaluate_SR( prediction, obj, small_obj, gt = False):
 	return
 
 
-
+#IOU evaluation function 
 def evaluate_voxel_prediction(prediction,gt):
 	"""  The prediction and gt are 3 dim voxels. Each voxel has values 1 or 0"""
 	intersection = np.sum(np.logical_and(prediction,gt))
@@ -333,7 +334,7 @@ def evaluate_voxel_prediction(prediction,gt):
 	return IoU
 
 
-# extracts odms from an object 
+# computes odms from an object 
 def odm(data): 
 	dim = data.shape[0] 
 	a,b,c = np.where(data == 1)
@@ -361,6 +362,7 @@ def odm(data):
 
 	return faces
 
+# computes the odms and upsampled version of a low res objects 
 def extract_odms(models, factor, high, low): 
 	low_ups = []
 	ratio = high // low 
@@ -388,7 +390,7 @@ def extract_odms(models, factor, high, low):
 		odms += list(faces)
 	return np.array([odms[i*split:(i+1)*split] for i in range(factor*6)]), np.array([low_ups[i*split:(i+1)*split] for i in range(factor*6)])
 
-
+# evaluates the reconsturction, renders the obejct, along with ground truth and low res object prediction 
 def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False): 
 	pred_model, pred_odms, name, image = instance 
 	upsampled_obj = upsample(pred_model, high, low) # want this to display alongside high res models 
@@ -408,18 +410,12 @@ def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False):
 	img.close()
 
 
-def plotVoxelVisdom(voxels, visdom, title):
-    v, f = getVFByMarchingCubes(voxels)
-    visdom.mesh(X=v, Y=f, opts=dict(opacity=0.5, title=title))
-
-
-
 def voxel_exist(voxels, x,y,z):
 	if x < 0 or y < 0 or z < 0 or x >= voxels.shape[0] or y >= voxels.shape[1] or z >= voxels.shape[2]:
 		return False
 	else :
 		return voxels[x,y,z] > .3 
-
+# conputes and returns the largest single voxel object 
 def max_connected(models):
 	distance = 1
 	for i,voxels in enumerate(models): 
@@ -451,6 +447,7 @@ def max_connected(models):
 		models[i] = max_component
 	return models
 
+# makes an object symettrical over the main vertical axis
 def mirror(data, high) : 
 	x,y,z = np.where(data== 1)
 	new_cse = []
