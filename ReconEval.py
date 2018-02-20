@@ -54,7 +54,7 @@ sess.run(tf.global_variables_initializer())
 
 
 
-
+#load network models for depth and occupancy predictions 
 net_depth_loaded_params = tl.files.load_npz(name='checkpoint/' + args.object + '/depth_best.npz')
 tl.files.assign_params(sess, net_depth_loaded_params, net_depth)
 net_occ_loaded_params = tl.files.load_npz(name='checkpoint/' +args.object + '/occ_best.npz')
