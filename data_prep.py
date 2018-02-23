@@ -4,7 +4,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR + '/scripts/')
-
+from voxel import * 
 import urllib
 from multiprocessing import Pool
 import binvox_rw
@@ -23,8 +23,8 @@ from subprocess import call
 # this is the dataset for object translation, it will download the object files, convert then into numpy matricies, and overlay them onto pictures from the sun dataset 
 
 parser = argparse.ArgumentParser(description='Dataset prep for image to 3D object super resolution')
-parser.add_argument('-o','--object', default=['chair'], help='List of object classes to be used downloaded and converted.', nargs='+' )
-parser.add_argument('-no','--num_objects', default=10000, help='number of objects to be converted', type = int)
+parser.add_argument('-o','--object', default=['car'], help='List of object classes to be used downloaded and converted.', nargs='+' )
+parser.add_argument('-no','--num_objects', default=10, help='number of objects to be converted', type = int)
 parser.add_argument('-ni','--num_images', default=10, help='number of images to be created for each object', type = int)
 parser.add_argument('-l','--low', default=32, help='Low resolution value', type = int)
 parser.add_argument('-hi','--high', default=256, help='high resolution value', type = int)
@@ -215,7 +215,7 @@ def odm(data, high, low):
 	large = int(dim *1.5)
 	big_list = [[[[-1,large]for j in range(dim)] for i in range(dim)] for k in range(3)]
 	# over the whole object extract for each face the first and last occurance of a voxel at each pixel
-	# the last occrances correspond to reversed odms from the opposite direction, and the 
+	# we take highest for convinience
 	for i,j,k in zip(a,b,c):
 		big_list[0][i][j][0] = (max(k,big_list[0][i][j][0]))
 		big_list[0][i][j][1] = (min(k,big_list[0][i][j][1]))
@@ -276,16 +276,15 @@ def convert_bin():
 					print '------------' 
 					print 'doing the test set'
 					print '------------'
-					
+				
 				for m in tqdm(mods):   
-					
 					# convert .binvox model to np array 
 					with open(m, 'rb') as f:
 						try: 
 							model = binvox_rw.read_as_3d_array(f)
 						except ValueError:
 							continue
-					model = model.data.astype(int)
+					model = model.data.astype(int)	
 
 					
 
@@ -315,7 +314,6 @@ def convert_bin():
 					else:
 
 						# applies high resolution odm to low resolution model to extract water tight models 
-						
 						# nearest neighbor upsapling of low res model to the high resolution 
 						corrected = np.zeros((high,high,high))
 						for i in range(low): 
@@ -326,38 +324,37 @@ def convert_bin():
 						#carving away of voxeles using high resolution odms 
 						for i in range(high): 
 							for j in range(high): 
-								if faces[0,i,j] >0:
+								if faces[0,i,j] <high:
 									corrected[i,j,int((high - faces[0,i,j])):high]=0
 								else: 
 									corrected[i,j,:] =0
 
-								if faces[1,i,j] >0: 
+								if faces[1,i,j] <high: 
 									corrected[i,j,0:int(faces[1,i,j])]=0
 								else: 
 									corrected[i,j,:] =0
 
-								if faces[2,i,j] >0: 
+								if faces[2,i,j] <high: 
 									corrected[i,int((high - faces[2,i,j])):high, j] =0 
 								else: 
 									corrected[i,:,j] =0
 
-								if faces[3,i,j] >0:
-									corrected[i,0:int(faces[3,i,j]-1), j] =0 
+								if faces[3,i,j] <high:
+									corrected[i,0:int(faces[3,i,j]), j] =0 
 								else: 
 									corrected[i,:,j] =0
 
-								if faces[4,i,j] >0:
+								if faces[4,i,j] <high:
 									corrected[int((high - faces[4,i,j])):high,i,j] =0 
 								else: 
 									corrected[:,i,j] =0
 
-								if faces[5,i,j] >0:
-									corrected[0:int(faces[5,i,j]-1),i,j] =0 
+								if faces[5,i,j] <high:
+									corrected[0:int(faces[5,i,j]),i,j] =0 
 								else: 
 									corrected[:,i,j] =0
 
-
-						#saving test set 
+						# voxel2obj('eval.obj',corrected, show = True)
 						sio.savemat('data/voxels/'+labels[num]+'/test/full_object_'+m.split('/')[-1][:-7], {'model': corrected.astype(np.uint16),'low_model':low_model.astype(np.uint8)})
 						for i in range(6):
 								sio.savemat('data/voxels/'+labels[num]+ '/test/face_'+ str(i)+ '_' +m.split('/')[-1][:-7], {'high_odm':faces[i].astype(np.uint16), 
