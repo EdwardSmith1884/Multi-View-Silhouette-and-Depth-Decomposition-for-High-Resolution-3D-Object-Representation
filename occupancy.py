@@ -83,7 +83,7 @@ else:
 	start = 0 
 min_recon = 100000. 
 for epoch in range(start, args.epochs):
-	for idx in xrange(len(files)/ batchsize):
+	for idx in xrange(len(files)/ batchsize/10):
 		batch = random.sample(files, batchsize)
 		batch, start_time = make_batch(batch, high, low, occupancy = True)
 
@@ -91,7 +91,7 @@ for epoch in range(start, args.epochs):
 		if epoch > 0:  
 			recon_loss.append(batch_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, loss: %.4f, VALID: %.4f" % (epoch, 
-			args.epochs, idx, len(files)/batchsize, time.time() - start_time, batch_loss, min_recon))
+			args.epochs, idx, len(files)/batchsize/10, time.time() - start_time, batch_loss, min_recon))
 		sys.stdout.flush()
 
   
