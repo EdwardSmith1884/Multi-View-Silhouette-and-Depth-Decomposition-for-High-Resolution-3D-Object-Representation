@@ -252,8 +252,8 @@ def apply_occupancy(obj, odms):
 			obj[y,:,z]-=0.25
 		else: 
 			obj[:,y,z]-=0.25
-	ones = np.where(obj==1)
-	zeros = np.where(obj<1)
+	ones = np.where(obj >=.6)
+	zeros = np.where(obj<.6)
 	obj[ones] = 1 
 	obj[zeros] = 0 
 	return obj 
@@ -287,8 +287,8 @@ def apply_depth(obj, odms, high):
 		elif x == 5: 
 				prediction[0:pos,y, z]-=.25
 				
-	ones = np.where(prediction>=.6)
-	zeros = np.where(prediction<.6)
+	ones = np.where(prediction==1)
+	zeros = np.where(prediction< 1)
 	prediction[ones] = 1 
 	prediction[zeros] = 0 
 	return prediction 
