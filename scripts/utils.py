@@ -9,6 +9,7 @@ import tensorlayer as tl
 from PIL import Image
 from voxel import *
 from tqdm import tqdm
+from scipy import ndimage
 np.warnings.filterwarnings('ignore')
 # making some subdirectories, checkpoint stores the models,
 # savepoint saves some created objects at each epoch
@@ -164,9 +165,8 @@ def render_graphs(save_dir,epoch, recon_loss, valid_loss, exact_valid_loss, name
 		for i in range(epoch+1): 
 			valid_list.append((i+1)*len(recon_loss)//(epoch+1) )
 
-		recon_loss = recon_loss[len(recon_loss)//2:]
-		valid_list, valid_loss = valid_list[:len(valid_loss)//2],valid_loss[len(valid_loss)//2:][:len(valid_loss)//2]
-
+		recon_loss = recon_loss
+		
 		smoothed_recon = savitzky_golay(recon_loss, 101, 3)
 		plt.plot(recon_loss, color='blue') 
 		plt.plot(smoothed_recon, color = 'red')
@@ -174,8 +174,8 @@ def render_graphs(save_dir,epoch, recon_loss, valid_loss, exact_valid_loss, name
 		plt.grid()
 		plt.savefig(save_dir+'/' + name + '_' + 'recon.png' )
 		plt.clf()
-	if len(exact_valid_loss)>5: 
-		plt.plot( exact_valid_loss[5:])
+	if len(exact_valid_loss): 
+		plt.plot( exact_valid_loss)
 		plt.grid()
 		plt.savefig(save_dir+'/' + name + '_' + 'exact_recon.png' )
 		plt.clf()
@@ -202,28 +202,8 @@ def recover_occupancy(preds, high, threshold = .5):
 	return preds.reshape((-1,high,high))
 
 
-# smooths over odm images
-def smoothing(odms, high,low, threshold): 
-	for i,odm in (enumerate(odms)):
-		copy = np.array(odm)
-		on = np.where(odm != high)
-		for x,y in zip(*on):
-			window = odm[max(0,x-3):min(high-1, x+4),max(0,y-3):min(high-1,y+4)] #window
-		
-			considered =  np.where( window != high)
-			total = 0.
-			count = 0.
-			for a,b in zip(*considered): 
-				if abs(window[a,b] -odm[x,y]) <threshold: # ignores values to far fom origional value in the window
-					total += window[a,b]
-					count +=1.
-			
-			if count >0:
-				copy[x,y] = total/count
-		odms[i] = np.round_(copy)
-	return odms
-# smooths over odm images
-def fast_smoothing(odms, high, low, threshold): 
+
+def fast_smoothing(odms, high, low, threshold):
 	for i,odm in (enumerate(odms)):
 		copy = np.array(odm)
 		on = np.where(odm != high)
@@ -272,8 +252,8 @@ def apply_occupancy(obj, odms):
 			obj[y,:,z]-=0.25
 		else: 
 			obj[:,y,z]-=0.25
-	ones = np.where(obj>=.6)
-	zeros = np.where(obj<.6)
+	ones = np.where(obj==1)
+	zeros = np.where(obj<1)
 	obj[ones] = 1 
 	obj[zeros] = 0 
 	return obj 
@@ -307,14 +287,13 @@ def apply_depth(obj, odms, high):
 		elif x == 5: 
 				prediction[0:pos,y, z]-=.25
 				
-	ones = np.where(prediction>=1)
-	zeros = np.where(prediction<1)
+	ones = np.where(prediction>=.6)
+	zeros = np.where(prediction<.6)
 	prediction[ones] = 1 
 	prediction[zeros] = 0 
 	return prediction 
 
 
-#evaluation function for super resolution, just renders the object, gt dictates if the ground truth is rendered too 
 def evaluate_SR( prediction, obj, small_obj, gt = False):
 	all_objs = np.concatenate((small_obj, prediction, obj), axis = 0 )
 	if gt: 
@@ -324,7 +303,7 @@ def evaluate_SR( prediction, obj, small_obj, gt = False):
 	return
 
 
-#IOU evaluation function 
+
 def evaluate_voxel_prediction(prediction,gt):
 	"""  The prediction and gt are 3 dim voxels. Each voxel has values 1 or 0"""
 	intersection = np.sum(np.logical_and(prediction,gt))
@@ -334,7 +313,7 @@ def evaluate_voxel_prediction(prediction,gt):
 	return IoU
 
 
-# computes odms from an object 
+# extracts odms from an object 
 def odm(data): 
 	dim = data.shape[0] 
 	a,b,c = np.where(data == 1)
@@ -362,7 +341,6 @@ def odm(data):
 
 	return faces
 
-# computes the odms and upsampled version of a low res objects 
 def extract_odms(models, factor, high, low): 
 	low_ups = []
 	ratio = high // low 
@@ -390,7 +368,7 @@ def extract_odms(models, factor, high, low):
 		odms += list(faces)
 	return np.array([odms[i*split:(i+1)*split] for i in range(factor*6)]), np.array([low_ups[i*split:(i+1)*split] for i in range(factor*6)])
 
-# evaluates the reconsturction, renders the obejct, along with ground truth and low res object prediction 
+
 def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False): 
 	pred_model, pred_odms, name, image = instance 
 	upsampled_obj = upsample(pred_model, high, low) # want this to display alongside high res models 
@@ -409,16 +387,23 @@ def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False):
 		voxel2obj('eval.obj',pred_obj, show = True)
 	img.close()
 
+	
+
+def plotVoxelVisdom(voxels, visdom, title):
+    v, f = getVFByMarchingCubes(voxels)
+    visdom.mesh(X=v, Y=f, opts=dict(opacity=0.5, title=title))
+
+
 
 def voxel_exist(voxels, x,y,z):
 	if x < 0 or y < 0 or z < 0 or x >= voxels.shape[0] or y >= voxels.shape[1] or z >= voxels.shape[2]:
 		return False
 	else :
 		return voxels[x,y,z] > .3 
-# conputes and returns the largest single voxel object 
+
 def max_connected(models):
 	distance = 1
-	for i,voxels in enumerate(models): 
+	for t,voxels in enumerate(models): 
 		max_component = np.zeros(voxels.shape, dtype=bool)
 		voxels = np.copy(voxels)
 		for startx in xrange(voxels.shape[0]):
@@ -444,10 +429,9 @@ def max_connected(models):
 										stack.append([i,j,k])
 					if component.sum() > max_component.sum():
 						max_component = component
-		models[i] = max_component
+		models[t] = max_component
 	return models
 
-# makes an object symettrical over the main vertical axis
 def mirror(data, high) : 
 	x,y,z = np.where(data== 1)
 	new_cse = []
