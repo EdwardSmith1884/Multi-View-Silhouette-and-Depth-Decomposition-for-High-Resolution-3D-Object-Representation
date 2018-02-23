@@ -81,14 +81,14 @@ else:
 ########### train #################
 for epoch in range(start, args.epochs):
 	random.shuffle(files)
-	for idx in xrange(0, len(files)/args.batchsize):
+	for idx in xrange(0, len(files)/args.batchsize/10):
 		batch = random.sample(files, args.batchsize)
 		batch_models, batch_images, start_time = make_batch_images(batch, data_dir)
 		
 		batch_loss,_ = sess.run([mse, optim], feed_dict={images: batch_images, models:batch_models })    
 		recon_loss.append(batch_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, loss: %.4f, VALID: %.4f" % (epoch, 
-			args.epochs, idx, len(files)/batchsize, time.time() - start_time, batch_loss, max_IoU))
+			args.epochs, idx, len(files)/batchsize/10, time.time() - start_time, batch_loss, max_IoU))
 
 	########## check validation #############
 	valid_losses = 0.
