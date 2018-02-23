@@ -91,7 +91,7 @@ else:
 min_recon = 100000. 
 
 for epoch in xrange(start, args.epochs):
-	for idx in xrange(len(files)//batchsize):
+	for idx in xrange(len(files)//batchsize/10):
 		batch = random.sample(files, batchsize)
 		batch,  start_time = make_batch(batch, high, low)
 
@@ -100,7 +100,7 @@ for epoch in xrange(start, args.epochs):
 		if epoch > 0:  
 			recon_loss.append(L2_loss)
 		print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, MSE:%.4f, Loss: %.4f, VALID: %.4f" % 
-			(epoch, args.epochs, idx, len(files)//batchsize, time.time() - start_time, L2_loss, batch_loss, min_recon))        
+			(epoch, args.epochs, idx, len(files)//batchsize/10, time.time() - start_time, L2_loss, batch_loss, min_recon))        
 		sys.stdout.flush()
 
 	######## check validation error ###########
