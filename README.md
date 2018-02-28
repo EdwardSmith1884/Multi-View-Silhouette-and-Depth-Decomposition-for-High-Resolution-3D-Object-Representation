@@ -97,4 +97,4 @@ This function will show the input image and render the produced high resolution 
 Example objects reconstructed from images. For each class, the left shows the input images, the center shows the predicted objects, and the right the ground truth. High definition copies of these images can be found in the Images folder.
 
 ## Reference:
-please cite my paper:,if you use this repo for research 
+please cite my paper: https://arxiv.org/pdf/1802.09987.pdf ,if you use this repo for research 
