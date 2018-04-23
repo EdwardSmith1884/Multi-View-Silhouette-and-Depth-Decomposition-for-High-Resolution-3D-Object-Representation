@@ -191,7 +191,7 @@ def recover_depths(preds, ups, high, dis):
 		pred = np.array(pred)
 		pred  = up + pred # add to upsampled low resolution odm
 		off = np.where(pred > high)  # set values which predict to high to be unoccupited -> 0        
-		pred[off] = 0. 
+		pred[off] = high-1 
 		preds[i] = pred
 	return preds
 
@@ -243,8 +243,8 @@ def upsample(obj, high, low):
 	return big_obj
 
 # removes voxels from object if the odm preducts the vector is unoccupied 
-def apply_occupancy(obj, odms): 
-	unoccupied = np.where(odms==0) 
+def apply_occupancy(obj, odms, high): 
+	unoccupied = np.where(odms==high) 
 	for x,y,z in zip(*unoccupied): 
 		if x == 0 or x == 1: 
 			obj[y,z,:]-=0.25
@@ -372,7 +372,7 @@ def extract_odms(models, factor, high, low):
 def evaluate_reconstruction(instance, voxel_dir, high, low, gt = False): 
 	pred_model, pred_odms, name, image = instance 
 	upsampled_obj = upsample(pred_model, high, low) # want this to display alongside high res models 
-	pred_model = apply_occupancy(np.array(upsampled_obj), np.array(pred_odms))
+	pred_model = apply_occupancy(np.array(upsampled_obj), np.array(pred_odms),high)
 	pred_model = apply_depth(pred_model, np.array(pred_odms), high)
 	pred_obj = mirror(pred_model, high) # want to mirror for symmetry, gives small accuracy boost, more attractive
 	img = Image.fromarray(image)
