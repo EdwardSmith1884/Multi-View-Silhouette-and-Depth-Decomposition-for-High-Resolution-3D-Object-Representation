@@ -72,7 +72,7 @@ for idx in (xrange(0, len(files)/args.batchsize)):
 	# looping over batch 
 	for odm, obj, small_obj  in (batch_predictions):
 		small_obj = upsample(small_obj, high, low)
-		prediction = apply_occupancy(np.array(small_obj), np.array(odm))
+		prediction = apply_occupancy(np.array(small_obj), np.array(odm), high)
 		prediction = apply_depth(np.array(prediction),np.array(odm),high,)
 		evaluate_SR(prediction, obj, small_obj, gt = False) # render model 
 		
