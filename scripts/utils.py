@@ -44,8 +44,12 @@ def make_batch(files, h, l, valid = False, side = -1, occupancy = False):
 			for x,y,z in zip(a,b,c):  
 				up[ratio*x:ratio*(x+1), ratio*y:ratio*(y+1), 0] = (low[x,y,0]) *ratio 
 			change = np.where(high == h)
+			if valid: 
+				up_change = np.where(up == h)
+			else:
+				up_change = change
 			up = up + 1
-			up[change] = 0
+			up[up_change] = 0
 			high = high + 1 
 			high[change] = 0  
 			highs.append(high) 
