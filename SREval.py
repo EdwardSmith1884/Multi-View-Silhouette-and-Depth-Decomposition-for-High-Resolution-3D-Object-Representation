@@ -60,7 +60,7 @@ for idx in (xrange(0, len(files)/args.batchsize)):
 	cur_files = files[idx*batchsize:(idx+1)*batchsize]
 	# loops over all sides
 	for k in range(6): 
-		batch, _    = make_batch(cur_files, high, low, side = k)
+		batch, _    = make_batch(cur_files, high, low, side = k, valid = True)
 		depths, occs = sess.run([depth_pred,occ_pred], feed_dict={images_low:batch['low'], side: batch['side']})     
 		odms.append(recover_odms(depths, occs, batch['low_up'], high, low, distance, threshold = 1.5*high//low)) # combining depths and occupancy maps to recover full odms 
 		
