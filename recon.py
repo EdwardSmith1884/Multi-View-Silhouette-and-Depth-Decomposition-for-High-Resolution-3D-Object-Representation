@@ -55,7 +55,6 @@ optim = tf.train.RMSPropOptimizer(learning_rate = 1e-3).minimize(loss, var_list=
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess=tf.Session()
-tl.ops.set_gpu_fraction(sess=sess, gpu_fraction=0.9980)
 sess.run(tf.global_variables_initializer())
 
 ##### load checkpoints ####################
