@@ -68,7 +68,6 @@ optim = tf.train.AdamOptimizer( learning_rate = lr, beta1=0.5, beta2=0.9).minimi
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess=tf.Session()
-tl.ops.set_gpu_fraction(sess=sess, gpu_fraction=0.999)
 sess.run(tf.global_variables_initializer())
 
 ####### load checkpoints and files ###############
