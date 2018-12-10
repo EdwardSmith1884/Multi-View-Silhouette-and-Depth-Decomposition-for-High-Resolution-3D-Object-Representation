@@ -20,14 +20,14 @@ def upscale(faces, ratio, scope = 'up', is_train=True, reuse=False):
 			recall = BatchNormLayer(recall, act=tf.nn.relu, is_train=is_train, gamma_init=g_init, name='res2/%s' % i)
 			recall = Conv2d(recall, 128, (3, 3), (1, 1), act=None, padding='SAME', W_init=w_init, name='res3/%s' % i)
 			recall = BatchNormLayer(recall, is_train=is_train, gamma_init=g_init, name='res4/%s' % i)
-			recall = ElementwiseLayer([upscale, recall], tf.add, 'res5/%s' % i)
+			recall = ElementwiseLayer([upscale, recall], tf.add, name= 'res5/%s' % i)
 			upscale = recall
 
 	
 
 		upscale = Conv2d(upscale, 128, (3, 3), (1, 1), act=None, padding='SAME', W_init=w_init, name='cnn2')
 		upscale = BatchNormLayer(upscale, is_train=is_train, gamma_init=g_init, name='bn2')
-		upscale = ElementwiseLayer([upscale, temp], tf.add, 'sum2')
+		upscale = ElementwiseLayer([upscale, temp], tf.add, name= 'sum2')
 
 		# up-sampling
 		for i in range(int(log(ratio,2))): 
@@ -36,6 +36,7 @@ def upscale(faces, ratio, scope = 'up', is_train=True, reuse=False):
 
 		upscale = Conv2d(upscale, 1, (1, 1), (1, 1), act=tf.nn.sigmoid, padding='SAME', W_init=w_init, name='cnnout')
 		return upscale, upscale.outputs
+
 
 
 
