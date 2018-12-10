@@ -106,4 +106,16 @@ This function will show the input image and render the produced high resolution 
 <sub>Example objects reconstructed from images.</sub>
 
 ## Reference:
-please cite my paper: https://arxiv.org/pdf/1802.09987.pdf ,if you use this repo for research 
+please cite my paper: https://arxiv.org/pdf/1802.09987.pdf ,if you use this repo for research with following bibtex: 
+
+            @incollection{NIPS2018_7883,
+            title = {Multi-View Silhouette and Depth Decomposition for High Resolution 3D Object Representation},
+            author = {Smith, Edward and Fujimoto, Scott and Meger, David},
+            booktitle = {Advances in Neural Information Processing Systems 31},
+            editor = {S. Bengio and H. Wallach and H. Larochelle and K. Grauman and N. Cesa-Bianchi and R. Garnett},
+            pages = {6479--6489},
+            year = {2018},
+            publisher = {Curran Associates, Inc.},
+            url = {http://papers.nips.cc/paper/7883-multi-view-silhouette-and-depth-decomposition-for-high-resolution-3d-object-representation.pdf}
+            }
+
