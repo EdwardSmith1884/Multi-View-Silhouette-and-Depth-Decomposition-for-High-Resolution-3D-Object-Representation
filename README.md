@@ -15,14 +15,22 @@ This is a repository to reproduce the method from the paper "Multi-View Silhouet
 </p>
 <sub>An example reconstruction result from a single image.</sub>
 
+## Requirements
+The following python packages are required: 
+```
+BeautifulSoup4
+html5lib
+tensorflow==1.13.2 
+tensorlayer==1.5.0 
+Tqdm
+sklearn
+```
+In addition Blender 2.79 and lib3ds-1.so.3 is required. 
+
 ## Data Production
  To produce the data needed to train and test the methods of this project we have the 'data_prep.py' script. This will download CAD models from the core classes of the ShapeNet data set, convert the objects to voxel objects, extract orthographic depth maps, render the objects as images, and split all the data into training, validation of test sets. This script makes use of the binvoxer executable, so first call
  ```bash
 sudo chmod 777 binvox 
-```
-Blender is also needed for this project so please ensure it is installed before beginning. 
- ```bash
-sudo apt install blender
 ```
 By default this scripts downloads the full chair class, to upscale from 32^3 to 256^3 resolution, and renders 10 images for each object. To achieve this call:
  ```bash
